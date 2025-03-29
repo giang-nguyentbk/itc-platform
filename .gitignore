@@ -1,0 +1,11 @@
+!*.md
+!*.am
+!configure.ac
+!atbuild.sh
+!enable-auto-complete.sh
+!*.cc
+!*.c
+!*.h
+
+.deps/*
+.dirstamp

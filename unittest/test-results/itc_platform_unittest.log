@@ -1,0 +1,145 @@
+[==========] Running 62 tests from 5 test suites.
+[----------] Global test environment set-up.
+[----------] 10 tests from FileSystemIfTest
+[ RUN      ] FileSystemIfTest.removePathTest1
+[       OK ] FileSystemIfTest.removePathTest1 (34 ms)
+[ RUN      ] FileSystemIfTest.removePathTest2
+removeDirectory: Exception: filesystem error: cannot remove all: Permission denied [/etc] [/etc/profile.d/gawk.csh]
+[       OK ] FileSystemIfTest.removePathTest2 (45 ms)
+[ RUN      ] FileSystemIfTest.createPathTest1
+[       OK ] FileSystemIfTest.createPathTest1 (14 ms)
+[ RUN      ] FileSystemIfTest.createPathTest2
+[       OK ] FileSystemIfTest.createPathTest2 (3 ms)
+[ RUN      ] FileSystemIfTest.createPathTest3
+[       OK ] FileSystemIfTest.createPathTest3 (1 ms)
+[ RUN      ] FileSystemIfTest.createPathTest4
+[       OK ] FileSystemIfTest.createPathTest4 (1 ms)
+[ RUN      ] FileSystemIfTest.existsTest1
+[       OK ] FileSystemIfTest.existsTest1 (1 ms)
+[ RUN      ] FileSystemIfTest.existsTest2
+[       OK ] FileSystemIfTest.existsTest2 (1 ms)
+[ RUN      ] FileSystemIfTest.isAccessibleTest1
+[       OK ] FileSystemIfTest.isAccessibleTest1 (3 ms)
+[ RUN      ] FileSystemIfTest.isAccessibleTest2
+[       OK ] FileSystemIfTest.isAccessibleTest2 (1 ms)
+[----------] 10 tests from FileSystemIfTest (111 ms total)
+
+[----------] 1 test from ItcMutexTest
+[ RUN      ] ItcMutexTest.getTimeDiffInNanoSecTest1
+[       OK ] ItcMutexTest.getTimeDiffInNanoSecTest1 (6 ms)
+[----------] 1 test from ItcMutexTest (6 ms total)
+
+[----------] 15 tests from ThreadManagerIfTest
+[ RUN      ] ThreadManagerIfTest.checkSchedulingParamsTestCase1
+[       OK ] ThreadManagerIfTest.checkSchedulingParamsTestCase1 (9 ms)
+[ RUN      ] ThreadManagerIfTest.checkSchedulingParamsTestCase2
+[       OK ] ThreadManagerIfTest.checkSchedulingParamsTestCase2 (1 ms)
+[ RUN      ] ThreadManagerIfTest.checkSchedulingParamsTestCase3
+[       OK ] ThreadManagerIfTest.checkSchedulingParamsTestCase3 (1 ms)
+[ RUN      ] ThreadManagerIfTest.checkSchedulingParamsTestCase4
+[       OK ] ThreadManagerIfTest.checkSchedulingParamsTestCase4 (1 ms)
+[ RUN      ] ThreadManagerIfTest.configureAndStartThreadTestCase1
+[       OK ] ThreadManagerIfTest.configureAndStartThreadTestCase1 (2 ms)
+[ RUN      ] ThreadManagerIfTest.configureAndStartThreadTestCase2
+[       OK ] ThreadManagerIfTest.configureAndStartThreadTestCase2 (32 ms)
+[ RUN      ] ThreadManagerIfTest.configureAndStartThreadTestCase3
+[       OK ] ThreadManagerIfTest.configureAndStartThreadTestCase3 (4 ms)
+[ RUN      ] ThreadManagerIfTest.setThreadAttributesTestCase1
+[       OK ] ThreadManagerIfTest.setThreadAttributesTestCase1 (3 ms)
+[ RUN      ] ThreadManagerIfTest.setThreadAttributesTestCase2
+[       OK ] ThreadManagerIfTest.setThreadAttributesTestCase2 (2 ms)
+[ RUN      ] ThreadManagerIfTest.setThreadAttributesTestCase3
+[       OK ] ThreadManagerIfTest.setThreadAttributesTestCase3 (1 ms)
+[ RUN      ] ThreadManagerIfTest.addThreadTestCase1
+[       OK ] ThreadManagerIfTest.addThreadTestCase1 (6 ms)
+[ RUN      ] ThreadManagerIfTest.startAllThreadsTestCase1
+[       OK ] ThreadManagerIfTest.startAllThreadsTestCase1 (39 ms)
+[ RUN      ] ThreadManagerIfTest.startAllThreadsTestCase2
+[       OK ] ThreadManagerIfTest.startAllThreadsTestCase2 (3 ms)
+[ RUN      ] ThreadManagerIfTest.startAllThreadsTestCase3
+[       OK ] ThreadManagerIfTest.startAllThreadsTestCase3 (22 ms)
+[ RUN      ] ThreadManagerIfTest.terminateAllThreadsTestCase1
+[       OK ] ThreadManagerIfTest.terminateAllThreadsTestCase1 (3 ms)
+[----------] 15 tests from ThreadManagerIfTest (143 ms total)
+
+[----------] 18 tests from ItcTransportLocalTest
+[ RUN      ] ItcTransportLocalTest.getUnitInfoIndexTest1
+[       OK ] ItcTransportLocalTest.getUnitInfoIndexTest1 (16 ms)
+[ RUN      ] ItcTransportLocalTest.getUnitInfoIndexTest2
+[       OK ] ItcTransportLocalTest.getUnitInfoIndexTest2 (2 ms)
+[ RUN      ] ItcTransportLocalTest.getUnitInfoIndexTest3
+[       OK ] ItcTransportLocalTest.getUnitInfoIndexTest3 (1 ms)
+[ RUN      ] ItcTransportLocalTest.getUnitInfoIndexTest4
+[       OK ] ItcTransportLocalTest.getUnitInfoIndexTest4 (1 ms)
+[ RUN      ] ItcTransportLocalTest.releaseUnitInfoTest1
+[       OK ] ItcTransportLocalTest.releaseUnitInfoTest1 (29 ms)
+[ RUN      ] ItcTransportLocalTest.initialiseTest1
+[       OK ] ItcTransportLocalTest.initialiseTest1 (1 ms)
+[ RUN      ] ItcTransportLocalTest.initialiseTest2
+[       OK ] ItcTransportLocalTest.initialiseTest2 (6 ms)
+[ RUN      ] ItcTransportLocalTest.initialiseTest3
+[       OK ] ItcTransportLocalTest.initialiseTest3 (1 ms)
+[ RUN      ] ItcTransportLocalTest.releaseTest1
+[       OK ] ItcTransportLocalTest.releaseTest1 (2 ms)
+[ RUN      ] ItcTransportLocalTest.releaseTest2
+[       OK ] ItcTransportLocalTest.releaseTest2 (2 ms)
+[ RUN      ] ItcTransportLocalTest.createMailboxTest1
+[       OK ] ItcTransportLocalTest.createMailboxTest1 (2 ms)
+[ RUN      ] ItcTransportLocalTest.createMailboxTest2
+[       OK ] ItcTransportLocalTest.createMailboxTest2 (1 ms)
+[ RUN      ] ItcTransportLocalTest.deleteMailboxTest1
+[       OK ] ItcTransportLocalTest.deleteMailboxTest1 (1 ms)
+[ RUN      ] ItcTransportLocalTest.deleteMailboxTest2
+[       OK ] ItcTransportLocalTest.deleteMailboxTest2 (1 ms)
+[ RUN      ] ItcTransportLocalTest.sendMessageTest1
+[       OK ] ItcTransportLocalTest.sendMessageTest1 (1 ms)
+[ RUN      ] ItcTransportLocalTest.sendMessageTest2
+[       OK ] ItcTransportLocalTest.sendMessageTest2 (1 ms)
+[ RUN      ] ItcTransportLocalTest.receiveMessageTest1
+[       OK ] ItcTransportLocalTest.receiveMessageTest1 (1 ms)
+[ RUN      ] ItcTransportLocalTest.receiveMessageTest2
+[       OK ] ItcTransportLocalTest.receiveMessageTest2 (1 ms)
+[----------] 18 tests from ItcTransportLocalTest (81 ms total)
+
+[----------] 18 tests from ItcTransportLSocketTest
+[ RUN      ] ItcTransportLSocketTest.initialiseTest1
+[       OK ] ItcTransportLSocketTest.initialiseTest1 (7 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest2
+[       OK ] ItcTransportLSocketTest.initialiseTest2 (14 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest3
+[       OK ] ItcTransportLSocketTest.initialiseTest3 (13 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest4
+[       OK ] ItcTransportLSocketTest.initialiseTest4 (23 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest5
+[       OK ] ItcTransportLSocketTest.initialiseTest5 (20 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest6
+[       OK ] ItcTransportLSocketTest.initialiseTest6 (8 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest7
+[       OK ] ItcTransportLSocketTest.initialiseTest7 (15 ms)
+[ RUN      ] ItcTransportLSocketTest.initialiseTest8
+[       OK ] ItcTransportLSocketTest.initialiseTest8 (14 ms)
+[ RUN      ] ItcTransportLSocketTest.releaseTest1
+[       OK ] ItcTransportLSocketTest.releaseTest1 (1 ms)
+[ RUN      ] ItcTransportLSocketTest.releaseTest2
+[       OK ] ItcTransportLSocketTest.releaseTest2 (10 ms)
+[ RUN      ] ItcTransportLSocketTest.releaseTest3
+[       OK ] ItcTransportLSocketTest.releaseTest3 (14 ms)
+[ RUN      ] ItcTransportLSocketTest.releaseTest4
+[       OK ] ItcTransportLSocketTest.releaseTest4 (5 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest1
+[       OK ] ItcTransportLSocketTest.locateItcServerTest1 (3 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest2
+[       OK ] ItcTransportLSocketTest.locateItcServerTest2 (4 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest3
+[       OK ] ItcTransportLSocketTest.locateItcServerTest3 (15 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest4
+[       OK ] ItcTransportLSocketTest.locateItcServerTest4 (7 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest5
+[       OK ] ItcTransportLSocketTest.locateItcServerTest5 (13 ms)
+[ RUN      ] ItcTransportLSocketTest.locateItcServerTest6
+[       OK ] ItcTransportLSocketTest.locateItcServerTest6 (12 ms)
+[----------] 18 tests from ItcTransportLSocketTest (208 ms total)
+
+[----------] Global test environment tear-down
+[==========] 62 tests from 5 test suites ran. (575 ms total)
+[  PASSED  ] 62 tests.
