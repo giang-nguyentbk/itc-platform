@@ -1,10 +1,11 @@
 #pragma once
 
 #include "itcCWrapperIf.h"
+#include "itcConstant.h"
 
 #include <gmock/gmock.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -28,7 +29,11 @@ public:
     MOCK_METHOD(int32_t, cConnect, (int32_t sockfd, const struct sockaddr *addr, socklen_t addrlen), (override));
     MOCK_METHOD(ssize_t, cSend, (int32_t sockfd, const void *buf, size_t size, int32_t flags), (override));
     MOCK_METHOD(ssize_t, cRecv, (int32_t sockfd, void *buf, size_t size, int32_t flags), (override));
-    MOCK_METHOD(int32_t, cClose, (int32_t fd), (override));
+    // MOCK_METHOD(int32_t, cClose, (int32_t fd), (override));
+    int32_t cClose(int32_t fd)
+    {
+        return ::close(fd);
+    }
     
     /***
      * Threading APIs
@@ -42,6 +47,11 @@ public:
     int32_t cPthreadMutexAttrInit(pthread_mutexattr_t *attr)
     {
         return ::pthread_mutexattr_init(attr);
+    }
+    // MOCK_METHOD(int32_t, cPthreadMutexAttrSetType, (pthread_mutexattr_t *attr, int32_t type), (override));
+    int32_t cPthreadMutexAttrSetType(pthread_mutexattr_t *attr, int32_t type)
+    {
+        return ::pthread_mutexattr_settype(attr, type);
     }
     // MOCK_METHOD(int32_t, cPthreadCondAttrSetClock, (pthread_condattr_t *attr, clockid_t clock_id), (override));
     int32_t cPthreadCondAttrSetClock(pthread_condattr_t *attr, clockid_t clock_id)
@@ -148,11 +158,16 @@ public:
     {
         return ::pthread_attr_destroy(attr);
     }
-    MOCK_METHOD(int32_t, cPthreadSetSpecific, (pthread_key_t key, const void *value), (override));
-    // int32_t cPthreadSetSpecific(pthread_key_t key, const void *value)
-    // {
-    //     return ::pthread_setspecific(key, value);
-    // }
+    // MOCK_METHOD(int32_t, cPthreadSetSpecific, (pthread_key_t key, const void *value), (override));
+    int32_t cPthreadSetSpecific(pthread_key_t key, const void *value)
+    {
+        return ::pthread_setspecific(key, value);
+    }
+    // MOCK_METHOD(int32_t, cPthreadSetCancelState, (int32_t state, int32_t *oldstate), (override));
+    int32_t cPthreadSetCancelState(int32_t state, int32_t *oldstate)
+    {
+        return ::pthread_setcancelstate(state, oldstate);
+    }
     // MOCK_METHOD(pid_t, cGetPid, (), (override));
     pid_t cGetPid()
     {
@@ -221,6 +236,21 @@ public:
     {
         return ::fclose(stream);
     }
+    // MOCK_METHOD(int32_t, cEventFd, (uint32_t initval, int32_t flags), (override));
+    int32_t cEventFd(uint32_t initval, int32_t flags)
+    {
+        return ::eventfd(initval, flags);
+    }
+    // MOCK_METHOD(ssize_t, cRead, (int32_t fd, void *buf, size_t count), (override));
+    ssize_t cRead(int32_t fd, void *buf, size_t count)
+    {
+        return ::read(fd, buf, count);
+    }
+    // MOCK_METHOD(ssize_t, cWrite, (int32_t fd, const void *buf, size_t count), (override));
+    ssize_t cWrite(int32_t fd, const void *buf, size_t count)
+    {
+        return ::write(fd, buf, count);
+    }
     
     /***
      * Time APIs
@@ -269,6 +299,11 @@ public:
     {
         return ::strcpy(dst, src);
     }
+    // MOCK_METHOD(size_t, cStrlen, (const char *s), (override));
+    size_t cStrlen(const char *s)
+    {
+        return ::strlen(s);
+    }
     
     /***
      * SYSV Message Queue APIs
@@ -283,8 +318,7 @@ private:
     CWrapperIfMock() = default;
 
 private:
-    static std::shared_ptr<CWrapperIfMock> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(CWrapperIfMock)
     
     friend class FileSystemIfTest;
     friend class ThreadManagerIfTest;
@@ -294,4 +328,4 @@ private:
 }; // class CWrapperIfMock
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

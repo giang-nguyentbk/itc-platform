@@ -7,12 +7,21 @@ _script_name="atbuild.sh"
 
 # Define available options for completion
 _options=(
-    "--build-target="
-    "--build-type="
-    "--enable-ut=all"
-    "--enable-ut=partial"
+    "--build-target-target1"
+    "--build-target-target2"
+    
+    "--build-type-debug"
+    "--build-type-release"
+    "--build-type-unittest"
+    
+    "--ut-repeat-count="
+    
+    "--enable-ut-specific-test"
     "--enable-valgrind"
     "--enable-test-coverage"
+    "--test-coverage-rate="
+    
+    "--enable-rebuild"
 )
 
 # Function for Bash completion

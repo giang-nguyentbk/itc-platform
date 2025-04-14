@@ -1,11 +1,12 @@
 #pragma once
 
 #include "itcCWrapperIf.h"
+#include "itcConstant.h"
 
 #include <mutex>
 #include <memory>
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -41,6 +42,7 @@ public:
      */
     int32_t cPthreadCondAttrInit(pthread_condattr_t *attr) override;
     int32_t cPthreadMutexAttrInit(pthread_mutexattr_t *attr) override;
+    int32_t cPthreadMutexAttrSetType(pthread_mutexattr_t *attr, int32_t type) override;
     int32_t cPthreadCondAttrSetClock(pthread_condattr_t *attr, clockid_t clock_id) override;
     int32_t cPthreadCondInit(pthread_cond_t *cond, const pthread_condattr_t *attr) override;
     int32_t cPthreadMutexInit(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr) override;
@@ -63,6 +65,7 @@ public:
     int32_t cPthreadAttrInit(pthread_attr_t *attr) override;
     int32_t cPthreadAttrDestroy(pthread_attr_t *attr) override;
     int32_t cPthreadSetSpecific(pthread_key_t key, const void *value) override;
+    int32_t cPthreadSetCancelState(int32_t state, int32_t *oldstate) override;
     pid_t cGetPid() override;
     pid_t cGetPPid() override;
     
@@ -84,6 +87,9 @@ public:
     int32_t cChmod(const char *pathname, mode_t mode) override;
     FILE *cFopen(const char *pathname, const char *mode) override;
     int32_t cFclose(FILE *stream) override;
+    int32_t cEventFd(uint32_t initval, int32_t flags) override;
+    ssize_t cRead(int32_t fd, void *buf, size_t count) override;
+    ssize_t cWrite(int32_t fd, const void *buf, size_t count) override;
     
     /***
      * Time APIs
@@ -100,6 +106,7 @@ public:
     void *cMemcpy(void *dest, const void *src, size_t n) override;
     int32_t cStrcmp(const char *s1, const char *s2) override;
     char *cStrcpy(char *dst, const char *src) override;
+    size_t cStrlen(const char *s) override;
     
     /***
      * SYSV Message Queue APIs
@@ -114,10 +121,9 @@ private:
     CWrapper() = default;
 
 private:
-    static std::shared_ptr<CWrapper> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(CWrapper)
 
 }; // class CWrapper
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

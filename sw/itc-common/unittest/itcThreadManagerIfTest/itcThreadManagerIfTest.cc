@@ -11,11 +11,11 @@
 
 #include "itcCWrapperIfMock.h"
 
-using namespace ItcPlatform::INTERNAL;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::INTERNAL;
+using namespace ITC::PROVIDED;
 using ThreadManagerIfReturnCode = ThreadManager::ThreadManagerIfReturnCode;
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -33,6 +33,16 @@ protected:
     {
         m_threadManager = ThreadManager::getInstance().lock();
         m_cWrapperIfMock = CWrapperIfMock::getInstance().lock();
+        m_setCondAttrsClockMonotonicFunc = [](SyncObjectElementsSharedPtr elemsPtr)
+        {
+            auto ret = CWrapperIf::getInstance().lock()->cPthreadCondAttrSetClock(&elemsPtr->condAttrs, CLOCK_MONOTONIC);
+            if(ret != 0) UNLIKELY
+            {
+                TPT_TRACE(TRACE_ERROR, SSTR("Failed to pthread_condattr_setclock, error code = ", ret));
+                return -1;
+            }
+            return 0;
+        };
     }
 
     void TearDown() override
@@ -47,9 +57,11 @@ protected:
     std::shared_ptr<ThreadManager> m_threadManager;
     std::shared_ptr<CWrapperIfMock> m_cWrapperIfMock;
     
+    SetupSyncObjectElemsAttrsFunc m_setCondAttrsClockMonotonicFunc;
+    
 };
 
-TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase1)
+TEST_F(ThreadManagerIfTest, checkSchedulingParamsTest1)
 {
     /***
      * Test scenario: test set priority that exceeds max supported priority for policy SCHED_FIFO (1-99).
@@ -61,7 +73,7 @@ TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase1)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_INVALID_ARGUMENTS));
 }
 
-TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase2)
+TEST_F(ThreadManagerIfTest, checkSchedulingParamsTest2)
 {
     /***
      * Test scenario: test set a valid priority within the permitted range (1-99).
@@ -73,7 +85,7 @@ TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase2)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK));
 }
 
-TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase3)
+TEST_F(ThreadManagerIfTest, checkSchedulingParamsTest3)
 {
     /***
      * Test scenario: test set a valid priority within the permitted range (1-99).
@@ -85,7 +97,7 @@ TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase3)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK));
 }
 
-TEST_F(ThreadManagerIfTest, checkSchedulingParamsTestCase4)
+TEST_F(ThreadManagerIfTest, checkSchedulingParamsTest4)
 {
     /***
      * Test scenario: test set an invalid priority exceeding the permitted range (0-0).
@@ -134,7 +146,7 @@ void *taskFunc(void *arg)
     return nullptr;
 }
 
-TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase1)
+TEST_F(ThreadManagerIfTest, configureAndStartThreadTest1)
 {
     /***
      * Test scenario: test start a thread with an invalid priority exceeding the permitted range (0-0).
@@ -147,7 +159,7 @@ TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase1)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_SYSCALL_ERROR));
 }
 
-TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase2)
+TEST_F(ThreadManagerIfTest, configureAndStartThreadTest2)
 {
     /***
      * Test scenario: test happy case that starts a thread and check the change of key to EXPECTED_KEY_VALUE.
@@ -164,7 +176,7 @@ TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase2)
     m_cWrapperIfMock->cPthreadDetach(tid);
 }
 
-TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase3)
+TEST_F(ThreadManagerIfTest, configureAndStartThreadTest3)
 {
     /***
      * Test scenario: test failed to start a Realtime thread without CAP_SYS_RESOURCE privilege.
@@ -181,7 +193,7 @@ TEST_F(ThreadManagerIfTest, configureAndStartThreadTestCase3)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_SYSCALL_ERROR));
 }
 
-TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase1)
+TEST_F(ThreadManagerIfTest, setThreadAttributesTest1)
 {
     /***
      * Test scenario: test set thread attributes corresponding to policy SCHED_OTHER.
@@ -195,7 +207,7 @@ TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase1)
     ASSERT_EQ(m_threadManager->m_priority, priority);
 }
 
-TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase2)
+TEST_F(ThreadManagerIfTest, setThreadAttributesTest2)
 {
     /***
      * Test scenario: test set thread attributes corresponding to policy SCHED_RR,
@@ -210,7 +222,7 @@ TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase2)
     ASSERT_EQ(m_threadManager->m_priority, priority);
 }
 
-TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase3)
+TEST_F(ThreadManagerIfTest, setThreadAttributesTest3)
 {
     /***
      * Test scenario: test set thread attributes corresponding to policy SCHED_RR,
@@ -222,32 +234,32 @@ TEST_F(ThreadManagerIfTest, setThreadAttributesTestCase3)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_INVALID_ARGUMENTS));
 }
 
-TEST_F(ThreadManagerIfTest, addThreadTestCase1)
+TEST_F(ThreadManagerIfTest, addThreadTest1)
 {
     /***
      * Test scenario: test set add a thread into m_threadList.
      */
-    auto signal = std::make_shared<Signal>();
-    auto rc = m_threadManager->addThread(Task(taskFunc), false, signal);
+    auto syncObj = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    auto rc = m_threadManager->addThread(Task(taskFunc), syncObj);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK));
     ASSERT_EQ(m_threadManager->m_threadList.size(), 1);
 }
 
-TEST_F(ThreadManagerIfTest, startAllThreadsTestCase1)
+TEST_F(ThreadManagerIfTest, startAllThreadsTest1)
 {
     /***
      * Test scenario: test start successfully 2 threads and check keys if they are set to EXPECTED_KEY_VALUE.
      */
-    auto signal1 = std::make_shared<Signal>();
-    signal1->setTimeout(500);
-    TaskFuncArgs args1 {0, &signal1->cond, &signal1->mtx, false, false, 0};
+    auto syncObj1 = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj1->setTimeout(500);
+    TaskFuncArgs args1 {0, &syncObj1->elems->cond, &syncObj1->elems->mtx, false, false, 0};
     
-    auto signal2 = std::make_shared<Signal>();
-    signal2->setTimeout(500);
-    TaskFuncArgs args2 {0, &signal2->cond, &signal2->mtx, false, false, 0};
+    auto syncObj2 = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj2->setTimeout(500);
+    TaskFuncArgs args2 {0, &syncObj2->elems->cond, &syncObj2->elems->mtx, false, false, 0};
     
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args1), true, signal1);
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args2), false, signal2);
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args1), syncObj1);
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args2), syncObj2);
     
     auto rc = m_threadManager->startAllThreads();
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK));
@@ -261,24 +273,24 @@ TEST_F(ThreadManagerIfTest, startAllThreadsTestCase1)
     }
 }
 
-TEST_F(ThreadManagerIfTest, startAllThreadsTestCase2)
+TEST_F(ThreadManagerIfTest, startAllThreadsTest2)
 {
     /***
      * Test scenario: test one of the threads gets destroyed before starting via ThreadManager,
-     * then std::weak_ptr.lock() of a Signal is nullptr.
+     * then std::weak_ptr.lock() of a SyncObject is nullptr.
      */
-    auto signal1 = std::make_shared<Signal>();
-    signal1->setTimeout(500);
-    TaskFuncArgs args1 {0, &signal1->cond, &signal1->mtx, false, false, 0};
+    auto syncObj1 = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj1->setTimeout(500);
+    TaskFuncArgs args1 {0, &syncObj1->elems->cond, &syncObj1->elems->mtx, false, false, 0};
     
-    auto signal2 = std::make_shared<Signal>();
-    signal2->setTimeout(500);
-    TaskFuncArgs args2 {0, &signal2->cond, &signal2->mtx, false, false, 0};
+    auto syncObj2 = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj2->setTimeout(500);
+    TaskFuncArgs args2 {0, &syncObj2->elems->cond, &syncObj2->elems->mtx, false, false, 0};
     
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args1), true, signal1);
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args2), false, signal2);
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args1), syncObj1);
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args2), syncObj2);
     
-    signal2.reset();
+    syncObj2.reset();
     auto rc = m_threadManager->startAllThreads();
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_SYSCALL_ERROR));
     ASSERT_EQ(args1.key, EXPECTED_KEY_VALUE);
@@ -287,17 +299,17 @@ TEST_F(ThreadManagerIfTest, startAllThreadsTestCase2)
     m_cWrapperIfMock->cPthreadDetach(m_threadManager->m_threadList.at(0).tid);
 }
 
-TEST_F(ThreadManagerIfTest, startAllThreadsTestCase3)
+TEST_F(ThreadManagerIfTest, startAllThreadsTest3)
 {
     /***
      * Test scenario: test force causing thread initialisation timeout,
      * then pthread_cond_timedwait is expired.
      */
     bool forceTimeout = true;
-    auto signal = std::make_shared<Signal>();
-    signal->setTimeout(10); /* Make pthread_cond_timedwait timeout too small, so expires quickly */
-    TaskFuncArgs args {0, &signal->cond, &signal->mtx, forceTimeout, false, 0};
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args), true, signal);
+    auto syncObj = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj->setTimeout(10); /* Make pthread_cond_timedwait timeout too small, so expires quickly */
+    TaskFuncArgs args {0, &syncObj->elems->cond, &syncObj->elems->mtx, forceTimeout, 0};
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args), syncObj);
     
     auto rc = m_threadManager->startAllThreads();
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_INITIALISATION_TIMEOUT));
@@ -305,7 +317,7 @@ TEST_F(ThreadManagerIfTest, startAllThreadsTestCase3)
     m_cWrapperIfMock->cPthreadDetach(m_threadManager->m_threadList.at(0).tid);
 }
 
-TEST_F(ThreadManagerIfTest, terminateAllThreadsTestCase1)
+TEST_F(ThreadManagerIfTest, terminateAllThreadsTest1)
 {
     /***
      * Test scenario: test force pause via sleep() to create cancelation point,
@@ -313,10 +325,10 @@ TEST_F(ThreadManagerIfTest, terminateAllThreadsTestCase1)
      */
     bool forcePause = true;
     uint32_t pauseTime = 10; /* seconds */
-    auto signal = std::make_shared<Signal>();
-    signal->setTimeout(500);
-    TaskFuncArgs args {0, &signal->cond, &signal->mtx, false, forcePause, pauseTime};
-    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args), true, signal);
+    auto syncObj = std::make_shared<SyncObject>(m_setCondAttrsClockMonotonicFunc);
+    syncObj->setTimeout(500);
+    TaskFuncArgs args {0, &syncObj->elems->cond, &syncObj->elems->mtx, false, forcePause, pauseTime};
+    m_threadManager->m_threadList.emplace_back(Task(taskFunc, &args), syncObj);
     
     auto rc = m_threadManager->startAllThreads();
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK));
@@ -328,4 +340,4 @@ TEST_F(ThreadManagerIfTest, terminateAllThreadsTestCase1)
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

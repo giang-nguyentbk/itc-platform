@@ -1,10 +1,11 @@
 #pragma once
 
 #include "itcFileSystemIf.h"
+#include "itcConstant.h"
 
 #include <gmock/gmock.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -16,7 +17,7 @@ public:
     static std::weak_ptr<FileSystemIfMock> getInstance();
     virtual ~FileSystemIfMock() = default;
     
-    MOCK_METHOD(FileSystemIfReturnCode, createPath, (const std::filesystem::path &path, std::filesystem::perms mode, size_t pos, PathType type), (override));
+    MOCK_METHOD(FileSystemIfReturnCode, createPath, (const std::filesystem::path &path, PathType type, size_t pos, std::filesystem::perms mode), (override));
     MOCK_METHOD(FileSystemIfReturnCode, removePath, (const std::filesystem::path &path), (override));
     MOCK_METHOD(bool, exists, (const std::filesystem::path &path), (override));
     MOCK_METHOD(bool, isAccessible, (const std::filesystem::path &path), (override));
@@ -25,8 +26,7 @@ private:
     FileSystemIfMock() = default;
 
 private:
-    static std::shared_ptr<FileSystemIfMock> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(FileSystemIfMock)
     
     friend class ItcTransportLSocketTest;
     friend class ItcTransportSysvMsgQueueTest;
@@ -35,4 +35,4 @@ private:
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

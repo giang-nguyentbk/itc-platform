@@ -1,6 +1,6 @@
 #include "itcMutex.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -23,4 +23,4 @@ unsigned long int getTimeDiffInNanoSec(struct timespec t_start, struct timespec 
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

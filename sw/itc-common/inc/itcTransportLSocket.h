@@ -21,10 +21,8 @@
 #include "itcConstant.h"
 #include "itcMailbox.h"
 #include "itcAdminMessage.h"
-#include "itcThreadManager.h"
-#include "itcTransportIf.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -32,16 +30,21 @@ namespace ItcPlatform
  */
 namespace INTERNAL
 {
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 
-static const std::string ITC_PATH_SOCK_FOLDER_NAME      {"/tmp/itc/socket"};
-static const std::string ITC_PATH_LSOCK_BASE_FILE_NAME  {"/tmp/itc/socket/lsocket"};
-static const std::string ITC_PATH_ITC_SERVER_FILE_NAME  {"/tmp/itc/itc-server/itc-server"};
+#define ITC_PATH_SOCK_FOLDER_NAME      		"/tmp/itc/socket"
+#define ITC_PATH_LSOCK_BASE_FILE_NAME  		"/tmp/itc/socket/lsocket"
+
+struct LocatedResults
+{
+    itc_mailbox_id_t assignedRegionId {ITC_MAILBOX_ID_DEFAULT};
+    itc_mailbox_id_t itcServerMboxId {ITC_MAILBOX_ID_DEFAULT};
+};
 
 /***
  * This transport is to locate itc-server only. The letter "l" in "lsocket" means locating.
  */
-class ItcTransportLSocket : public ItcTransportIf
+class ItcTransportLSocket
 {
 public:
     static std::weak_ptr<ItcTransportLSocket> getInstance();
@@ -52,26 +55,16 @@ public:
     ItcTransportLSocket(ItcTransportLSocket &&other) noexcept = delete;
     ItcTransportLSocket &operator=(ItcTransportLSocket &&other) noexcept = delete;
     
-    ItcTransportIfReturnCode initialise(itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID, uint32_t mboxCount = 0, uint32_t flags = ITC_NO_MAILBOX_ID) override;
-    ItcTransportIfReturnCode release() override;
-    ItcTransportIfReturnCode locateItcServer(itc_mailbox_id_t *assignedRegionId, itc_mailbox_id_t *locatedItcServerMboxId) override;
-    ItcTransportIfReturnCode createMailbox(ItcMailboxRawPtr newMbox) override;
-    ItcTransportIfReturnCode deleteMailbox(ItcMailboxRawPtr mbox) override;
-    ItcTransportIfReturnCode sendMessage(ItcAdminMessageRawPtr adminMsg, const MailboxContactInfo &toMbox) override;
-    ItcAdminMessageRawPtr receiveMessage(ItcMailboxRawPtr myMbox) override;
-    size_t getMaxMessageSize() override;
+    bool initialise(itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT);
+    void release();
+    LocatedResults locateItcServer();
 
 private:
     ItcTransportLSocket() = default;
     
-    /***
-     * @DEPRECATED
-     */
-    ItcTransportIfReturnCode createLSockPath();
-    
 private:
-    static std::shared_ptr<ItcTransportLSocket> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(ItcTransportLSocket)
+    
     int32_t m_sockFd {-1};
     bool m_isItcServerRunning {false};
     bool m_isLSockPathCreated {false};
@@ -98,4 +91,4 @@ private:
 }; // class ItcTransportLSocket
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

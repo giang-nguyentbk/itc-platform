@@ -10,8 +10,9 @@
 
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/eventfd.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -41,6 +42,7 @@ public:
      */
     virtual int32_t cPthreadCondAttrInit(pthread_condattr_t *attr) = 0;
     virtual int32_t cPthreadMutexAttrInit(pthread_mutexattr_t *attr) = 0;
+    virtual int32_t cPthreadMutexAttrSetType(pthread_mutexattr_t *attr, int32_t type) = 0;
     virtual int32_t cPthreadCondAttrSetClock(pthread_condattr_t *attr, clockid_t clock_id) = 0;
     virtual int32_t cPthreadCondInit(pthread_cond_t *cond, const pthread_condattr_t *attr) = 0;
     virtual int32_t cPthreadMutexInit(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr) = 0;
@@ -63,6 +65,7 @@ public:
     virtual int32_t cPthreadAttrInit(pthread_attr_t *attr) = 0;
     virtual int32_t cPthreadAttrDestroy(pthread_attr_t *attr) = 0;
     virtual int32_t cPthreadSetSpecific(pthread_key_t key, const void *value) = 0;
+    virtual int32_t cPthreadSetCancelState(int32_t state, int32_t *oldstate) = 0;
     virtual pid_t cGetPid() = 0;
     virtual pid_t cGetPPid() = 0;
     
@@ -84,6 +87,9 @@ public:
     virtual int32_t cChmod(const char *pathname, mode_t mode) = 0;
     virtual FILE *cFopen(const char *pathname, const char *mode) = 0;
     virtual int32_t cFclose(FILE *stream) = 0;
+    virtual int32_t cEventFd(uint32_t initval, int32_t flags) = 0;
+    virtual ssize_t cRead(int32_t fd, void *buf, size_t count) = 0;
+    virtual ssize_t cWrite(int32_t fd, const void *buf, size_t count) = 0;
     
     /***
      * Time APIs
@@ -100,6 +106,7 @@ public:
     virtual void *cMemcpy(void *dest, const void *src, size_t n) = 0;
     virtual int32_t cStrcmp(const char *s1, const char *s2) = 0;
     virtual char *cStrcpy(char *dst, const char *src) = 0;
+    virtual size_t cStrlen(const char *s) = 0;
     
     /***
      * SYSV Message Queue APIs
@@ -118,4 +125,4 @@ protected:
 }; // class CWrapperIf
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

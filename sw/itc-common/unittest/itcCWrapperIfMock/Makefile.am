@@ -7,6 +7,7 @@ libitcCWrapperIfMock_a_CPPFLAGS	= \
 				-I$(abs_top_srcdir)/sw/itc-common/if \
 				-I$(abs_top_srcdir)/sw/itc-common/inc \
 				-I$(abs_top_srcdir)/sw/itc-api/if \
+				-I$(abs_top_srcdir)/sw/itc-api/inc \
 				-I$(abs_top_srcdir)/sw/itc-common/unittest/itcCWrapperIfMock
 
 libitcCWrapperIfMock_a_COMMON_SOURCES 	= \

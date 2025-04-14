@@ -26,7 +26,7 @@ check_build_target()
 AM_CONDITIONAL([BUILD_TARGET_TARGET1], [check_build_target target1])
 AM_CONDITIONAL([BUILD_TARGET_TARGET2], [check_build_target target2])
 
-AC_ARG_VAR(BUILD_TYPE, [choose: debug release])
+AC_ARG_VAR(BUILD_TYPE, [choose: debug release unittest])
 AC_MSG_NOTICE([............checking BUILD_TYPE: $BUILD_TYPE............])
 AS_IF([test "x$BUILD_TYPE" = x], [AC_MSG_ERROR([No BUILD_TYPE was given!])])
 check_build_type()
@@ -39,45 +39,49 @@ check_build_type()
 }
 AM_CONDITIONAL([BUILD_TYPE_DEBUG], [check_build_type debug])
 AM_CONDITIONAL([BUILD_TYPE_RELEASE], [check_build_type release])
+AM_CONDITIONAL([BUILD_TYPE_UNITTEST], [check_build_type unittest])
 
-AC_ARG_VAR(ENABLE_UNITTEST, [choose: all partial])
-AC_MSG_NOTICE([............checking ENABLE_UNITTEST: $ENABLE_UNITTEST............])
-check_enable_unittest()
-{
-    for t in "$@"
-    do
-        test "x$ENABLE_UNITTEST" = "x$t" && return 0
-    done
-    return 1
-}
-AM_CONDITIONAL([ENABLE_UNITTEST_ALL], [check_enable_unittest all])
-AM_CONDITIONAL([ENABLE_UNITTEST_PARTIAL], [check_enable_unittest partial])
-AM_CONDITIONAL([ENABLE_UNITTEST_YES],
-               [test "$ENABLE_UNITTEST_ALL" != "no" -o "$ENABLE_UNITTEST_PARTIAL" != "no"])
+if test "x$BUILD_TYPE" = "xunittest"; then
+    AC_ARG_VAR(ENABLE_UT_SPECIFIC_TEST, [choose: yes])
+    AC_MSG_NOTICE([............checking ENABLE_UT_SPECIFIC_TEST: $ENABLE_UT_SPECIFIC_TEST............])
+    check_enable_ut_specific_test()
+    {
+        for t in "$@"
+        do
+            test "x$ENABLE_UT_SPECIFIC_TEST" = "x$t" && return 0
+        done
+        return 1
+    }
+    AM_CONDITIONAL([ENABLE_UT_SPECIFIC_TEST_YES], [check_enable_ut_specific_test yes])
 
-AC_ARG_VAR(ENABLE_VALGRIND, [choose: yes])
-AC_MSG_NOTICE([............checking ENABLE_VALGRIND: $ENABLE_VALGRIND............])
-check_enable_valgrind()
-{
-    for t in "$@"
-    do
-        test "x$ENABLE_VALGRIND" = "x$t" && return 0
-    done
-    return 1
-}
-AM_CONDITIONAL([ENABLE_VALGRIND_YES], [check_enable_valgrind yes])
+    AC_ARG_VAR(ENABLE_VALGRIND, [choose: yes])
+    AC_MSG_NOTICE([............checking ENABLE_VALGRIND: $ENABLE_VALGRIND............])
+    check_enable_valgrind()
+    {
+        for t in "$@"
+        do
+            test "x$ENABLE_VALGRIND" = "x$t" && return 0
+        done
+        return 1
+    }
+    AM_CONDITIONAL([ENABLE_VALGRIND_YES], [check_enable_valgrind yes])
 
-AC_ARG_VAR(ENABLE_TEST_COVERAGE, [choose: yes])
-AC_MSG_NOTICE([............checking ENABLE_TEST_COVERAGE: $ENABLE_TEST_COVERAGE............])
-check_enable_test_coverage()
-{
-    for t in "$@"
-    do
-        test "x$ENABLE_TEST_COVERAGE" = "x$t" && return 0
-    done
-    return 1
-}
-AM_CONDITIONAL([ENABLE_TEST_COVERAGE_YES], [check_enable_test_coverage yes])
+    AC_ARG_VAR(ENABLE_TEST_COVERAGE, [choose: yes])
+    AC_MSG_NOTICE([............checking ENABLE_TEST_COVERAGE: $ENABLE_TEST_COVERAGE............])
+    check_enable_test_coverage()
+    {
+        for t in "$@"
+        do
+            test "x$ENABLE_TEST_COVERAGE" = "x$t" && return 0
+        done
+        return 1
+    }
+    AM_CONDITIONAL([ENABLE_TEST_COVERAGE_YES], [check_enable_test_coverage yes])
+else
+AM_CONDITIONAL([ENABLE_UT_SPECIFIC_TEST_YES], [false])
+AM_CONDITIONAL([ENABLE_VALGRIND_YES], [false])
+AM_CONDITIONAL([ENABLE_TEST_COVERAGE_YES], [false])
+fi
 
 AM_CFLAGS="$AM_CFLAGS -std=c23 -Wall -Werror -Wno-unused-parameter -Wextra -pedantic"
 AC_SUBST([AM_CFLAGS])

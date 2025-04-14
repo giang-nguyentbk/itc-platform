@@ -4,9 +4,19 @@ include sw/itc-common/unittest/itcCWrapperIfMock/Makefile.am
 include sw/itc-common/unittest/itcFileSystemIfMock/Makefile.am
 include sw/itc-common/unittest/itcThreadManagerIfMock/Makefile.am
 
+# List out all real libraries to run unit test
+include sw/itc-common/unittest/itcMailboxRealImpl/Makefile.am
+include sw/itc-common/unittest/itcMutexRealImpl/Makefile.am
+include sw/itc-common/unittest/itcSyncObjectRealImpl/Makefile.am
+include sw/itc-common/unittest/itcTransportLocalRealImpl/Makefile.am
+include sw/itc-common/unittest/itcTransportLSocketRealImpl/Makefile.am
+include sw/itc-common/unittest/itcTransportSysvMsgQueueRealImpl/Makefile.am
+
 # List out all test suites to run
-include sw/itc-common/unittest/itcFileSystemIfTest/Makefile.am
+include sw/itc-common/unittest/itcFileSystemTest/Makefile.am
 include sw/itc-common/unittest/itcMutexTest/Makefile.am
+include sw/itc-common/unittest/itcSmartContainerTest/Makefile.am
 include sw/itc-common/unittest/itcThreadManagerIfTest/Makefile.am
+include sw/itc-common/unittest/itcThreadPoolTest/Makefile.am
 include sw/itc-common/unittest/itcTransportLocalTest/Makefile.am
-include sw/itc-common/unittest/itcTransportLSocketTest/Makefile.am
+# include sw/itc-common/unittest/itcTransportLSocketTest/Makefile.am

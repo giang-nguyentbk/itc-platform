@@ -11,12 +11,13 @@
 
 #include "itc.h"
 #include "itcCWrapperIf.h"
+#include "itcConstant.h"
 
 // #include <enumUtils.h>
 
 // using namespace CommonUtils::V1::EnumUtils;
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -40,8 +41,8 @@ public:
 	ThreadManager(ThreadManager &&other) noexcept = delete;
 	ThreadManager &operator=(ThreadManager &&other) noexcept = delete;
 	
-    ThreadManagerIfReturnCode setThreadAttributes(int32_t policy, int32_t selfLimitPrio, int32_t priority) override;
-    ThreadManagerIfReturnCode addThread(const Task &task, bool useHighestPriority, std::shared_ptr<Signal> &signal) override;
+    ThreadManagerIfReturnCode setThreadAttributes(int32_t policy = SCHED_OTHER, int32_t selfLimitPrio = ITC_THREAD_SELF_LIMIT_PRIORITY_HIGH, int32_t priority = 0) override;
+    ThreadManagerIfReturnCode addThread(const Task &task, std::shared_ptr<SyncObject> syncObj, bool useHighestPriority = false) override;
     ThreadManagerIfReturnCode startAllThreads() override;
     ThreadManagerIfReturnCode terminateAllThreads() override;
 
@@ -58,8 +59,8 @@ private:
 	ThreadManagerIfReturnCode configureAndStartThread(void *(*taskFunc)(void *), void *args, pthread_t *tid, int policy, int priority);
 
 private:
-	static std::shared_ptr<ThreadManager> m_instance;
-	static std::mutex m_singletonMutex;
+	SINGLETON_DECLARATION(ThreadManager)
+	
     pthread_mutex_t 				m_threadListMutex;
     std::vector<Thread>   			m_threadList;
     int32_t 						m_policy {SCHED_OTHER};
@@ -67,24 +68,24 @@ private:
     int32_t 						m_priority {0};
 	
 	friend class ThreadManagerIfTest;
-	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTestCase1);
-	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTestCase2);
-	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTestCase3);
-	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTestCase4);
-	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTestCase1);
-	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTestCase2);
-	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTestCase3);
-	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTestCase1);
-	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTestCase2);
-	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTestCase3);
-	FRIEND_TEST(ThreadManagerIfTest, addThreadTestCase1);
-	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTestCase1);
-	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTestCase2);
-	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTestCase3);
-	FRIEND_TEST(ThreadManagerIfTest, terminateAllThreadsTestCase1);
+	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTest1);
+	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTest2);
+	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTest3);
+	FRIEND_TEST(ThreadManagerIfTest, checkSchedulingParamsTest4);
+	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTest1);
+	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTest2);
+	FRIEND_TEST(ThreadManagerIfTest, configureAndStartThreadTest3);
+	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTest1);
+	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTest2);
+	FRIEND_TEST(ThreadManagerIfTest, setThreadAttributesTest3);
+	FRIEND_TEST(ThreadManagerIfTest, addThreadTest1);
+	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTest1);
+	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTest2);
+	FRIEND_TEST(ThreadManagerIfTest, startAllThreadsTest3);
+	FRIEND_TEST(ThreadManagerIfTest, terminateAllThreadsTest1);
 }; // class ThreadManager
 
 using ThreadManagerSharedPtr = std::shared_ptr<ThreadManager>;
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

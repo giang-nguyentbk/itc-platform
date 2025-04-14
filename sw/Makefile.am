@@ -12,7 +12,7 @@ lib_LTLIBRARIES += \
 libitcplatform_la_LIBADD = 
 
 # Invoke sub-Makefile.am
-# include sw/itc-api/src/Makefile.am
+include sw/itc-api/src/Makefile.am
 include sw/itc-common/src/Makefile.am
 # include sw/itc-server/src/Makefile.am
 

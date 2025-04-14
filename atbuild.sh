@@ -1,51 +1,44 @@
-# UNITTEST BUILD
-# make clean && libtoolize && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all --xml=yes --xml-file=unittest/valgrind/memory_leak_report.xml ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 && make && ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest > unittest/test-results/itc_platform_unittest.log 2>&1
-
-# for i in {1..50}; do ./itc_platform_unittest; done > unittest/test-results/itc_platform_unittest.log 2>&1
-
-# make clean && rm -rf unittest/test-results/itc_platform_unittest.log
-
-#make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 --host=arm-linux-gnueabi && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 --host=i686-pc-linux-gnu && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 --host=x86_64-pc-linux-gnu && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 --host=armv7-eabi && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=unittest UNITTEST_TYPE=$1 --host=aarch64-linux-gnu && make && valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all ./itc_platform_unittest
-
-# PRODUCTION BUILD DEBUG - TARGET1
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=debug && make && make clean
-
-# PRODUCTION BUILD RELEASE - TARGET1
-# make clean && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure BUILD_TARGET=target1 BUILD_TYPE=release && make && make clean
-
-
 #!/bin/bash
 
-# Clean up
-rm -rf unittest/test-results/* unittest/valgrind/* unittest/coverage/* sw/itc-api/src/*.gcda sw/itc-api/src/*.gcno sw/itc-common/src/*.gcda sw/itc-common/src/*.gcno
+# Variables
+UNITTEST_PROGRAM="./itc_platform_unittest"
+UNITTEST_LOG="unittest/test-results/itc_platform_unittest.log"
+VALGRIND_REPORT_XML="unittest/valgrind/memory_leak_report.xml"
+TEST_COVERAGE_INFO="unittest/coverage/coverage.info"
+TEST_COVERAGE_OUTPUT="unittest/coverage/output"
+
+# architectures["product_name"]="target_architecture"
+declare -A architectures
+architectures["target1"]="aarch64-linux-gnu"
+architectures["target2"]="x86_64-pc-linux-gnu"
 
 # Default values
 BUILD_TARGET="target1"
 BUILD_TYPE="debug"
-ENABLE_UT="no"
+UT_REPEAT_COUNT=1
+ENABLE_UT_SPECIFIC_TEST="no"
 ENABLE_VALGRIND="no"
 ENABLE_TEST_COVERAGE="no"
-AUTO_BUILD_COMMAND="libtoolize && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure "
+TEST_COVERAGE_RATE="92"
+ENABLE_REBUILD="no"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
-        --build-target=*)
-            BUILD_TARGET="${arg#*=}"
+        --build-target-*)
+            BUILD_TARGET="${arg#*--build-target-}"
             shift
             ;;
-        --build-type=*)
-            BUILD_TYPE="${arg#*=}"
+        --build-type-*)
+            BUILD_TYPE="${arg#*--build-type-}"
             shift
             ;;
-        --enable-ut=*)
-            ENABLE_UT="${arg#*=}"
+        --ut-repeat-count=*)
+            UT_REPEAT_COUNT="${arg#*=}"
+            shift
+            ;;
+        --enable-ut-specific-test)
+            ENABLE_UT_SPECIFIC_TEST="yes"
             shift
             ;;
         --enable-valgrind)
@@ -54,6 +47,16 @@ for arg in "$@"; do
             ;;
         --enable-test-coverage)
             ENABLE_TEST_COVERAGE="yes"
+            # If enable test coverage, forcibly rebuild because compile flags are needed
+            ENABLE_REBUILD="yes"
+            shift
+            ;;
+        --test-coverage-rate=*)
+            TEST_COVERAGE_RATE="${arg#*=}"
+            shift
+            ;;
+        --enable-rebuild)
+            ENABLE_REBUILD="yes"
             shift
             ;;
         *)
@@ -65,123 +68,124 @@ done
 
 # Print parsed values
 echo "[+] Build Target: $BUILD_TARGET"
-echo "[+] Enable UT: $ENABLE_UT"
+echo "[+] Target Architecture: ${architectures[$BUILD_TARGET]}"
+echo "[+] Build Type: $BUILD_TYPE"
+echo "[+] UT Repeat Count: $UT_REPEAT_COUNT"
+echo "[+] Enable UT Specific Test: $ENABLE_UT_SPECIFIC_TEST"
 echo "[+] Enable Valgrind: $ENABLE_VALGRIND"
 echo "[+] Enable Test Coverage: $ENABLE_TEST_COVERAGE"
+echo "[+] Test Coverage Rate: $TEST_COVERAGE_RATE"
+echo "[+] Enable Rebuild: $ENABLE_REBUILD"
 
 # Validate conditions: If valgrind or coverage is enabled but UT is disabled, return an error
-if [[ "$ENABLE_UT" != "no" ]] && [[ "$ENABLE_UT" != "all" ]] && [[ "$ENABLE_UT" != "partial" ]]; then
-    echo "[-] Error: Unknown ENABLE_TEST_COVERAGE option $ENABLE_TEST_COVERAGE"
+if  [[ "$BUILD_TARGET" != "target1" ]] &&
+    [[ "$BUILD_TARGET" != "target2" ]]; then
+    echo "[-] Error: Unknown BUILD_TARGET option: $BUILD_TARGET"
     exit 1
 fi
-if [[ "$ENABLE_TEST_COVERAGE" != "no" ]] && [[ "$ENABLE_TEST_COVERAGE" != "yes" ]]; then
-    echo "[-] Error: Unknown ENABLE_TEST_COVERAGE option $ENABLE_TEST_COVERAGE"
+if  [[ "$BUILD_TYPE" != "debug" ]] &&
+    [[ "$BUILD_TYPE" != "release" ]] &&
+    [[ "$BUILD_TYPE" != "unittest" ]]; then
+    echo "[-] Error: Unknown BUILD_TYPE option: $BUILD_TYPE"
     exit 1
 fi
-if [[ "$ENABLE_VALGRIND" != "no" ]] && [[ "$ENABLE_VALGRIND" != "yes" ]]; then
-    echo "[-] Error: Unknown ENABLE_VALGRIND option $ENABLE_VALGRIND"
+if  [[ "$ENABLE_UT_SPECIFIC_TEST" != "no" ]] &&
+    [[ "$ENABLE_UT_SPECIFIC_TEST" != "yes" ]]; then
+    echo "[-] Error: Unknown ENABLE_UT_SPECIFIC_TEST option: $ENABLE_UT_SPECIFIC_TEST"
     exit 1
 fi
-if [[ "$ENABLE_VALGRIND" == "yes" ]] && [[ "$ENABLE_UT" == "no" ]]; then
-    echo "[-] Error: --enable-valgrind=yes requires --enable-ut=yes."
+if  [[ "$ENABLE_VALGRIND" != "no" ]] &&
+    [[ "$ENABLE_VALGRIND" != "yes" ]]; then
+    echo "[-] Error: Unknown ENABLE_VALGRIND option: $ENABLE_VALGRIND"
     exit 1
 fi
-if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]] && [[ "$ENABLE_UT" == "no" ]]; then
-    echo "[-] Error: --enable-test-coverage=yes requires --enable-ut=yes."
+if  [[ "$ENABLE_TEST_COVERAGE" != "no" ]] &&
+    [[ "$ENABLE_TEST_COVERAGE" != "yes" ]]; then
+    echo "[-] Error: Unknown ENABLE_TEST_COVERAGE option: $ENABLE_TEST_COVERAGE"
     exit 1
 fi
+if ! [[ "$TEST_COVERAGE_RATE" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    echo "[-] Error: Invalid TEST_COVERAGE_RATE: $TEST_COVERAGE_RATE (not a floating point or decimal value)"
+    exit 1
+fi
+if  [[ "$ENABLE_REBUILD" != "no" ]] &&
+    [[ "$ENABLE_REBUILD" != "yes" ]]; then
+    echo "[-] Error: Unknown ENABLE_REBUILD option: $ENABLE_REBUILD"
+    exit 1
+fi
+if { [[ "$ENABLE_VALGRIND" == "yes" ]] || [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; } &&
+   [[ "$BUILD_TYPE" != "unittest" ]] ; then
+    echo "[-] Error: --enable-valgrind or --enable-test-coverage requires --build-type-unittest"
+    exit 1
+fi
+
+TO_BE_REMOVED="./itc_platform_unittest unittest/test-results/* unittest/valgrind/* unittest/coverage/* sw/itc-api/src/*.gcda sw/itc-api/src/*.gcno sw/itc-common/src/*.gcda sw/itc-common/src/*.gcno"
 
 # Build configure.ac options
+AUTO_BUILD_COMMAND=""
+AUTO_BUILD_COMMAND+="echo '================== CLEANUP START ==================' "
+AUTO_BUILD_COMMAND+="&& rm -rf $TO_BE_REMOVED "
+if [[ "$ENABLE_REBUILD" == "yes" ]]; then
+    AUTO_BUILD_COMMAND+="&& make -k clean 2>/dev/null || true "
+fi
+AUTO_BUILD_COMMAND+="&& echo '================== CLEANUP DONE ==================' "
+AUTO_BUILD_COMMAND+="&& libtoolize && aclocal && autoconf && automake --add-missing && autoreconf -fi && ./configure "
 AUTO_BUILD_COMMAND+="BUILD_TARGET=$BUILD_TARGET "
+AUTO_BUILD_COMMAND+="--host=${architectures[$BUILD_TARGET]} "
 AUTO_BUILD_COMMAND+="BUILD_TYPE=$BUILD_TYPE "
-if [[ "$ENABLE_UT" == "all" ]]; then
-    echo "[+] Enable unit test: all."
-    AUTO_BUILD_COMMAND+="ENABLE_UNITTEST=all "
-fi
-if [[ "$ENABLE_UT" == "partial" ]]; then
-    echo "[+] Enable unit test: partial."
-    AUTO_BUILD_COMMAND+="ENABLE_UNITTEST=partial "
-fi
-if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
-    echo "[+] Enable valgrind: yes."
-    AUTO_BUILD_COMMAND+="ENABLE_VALGRIND=yes "
-fi
-if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
-    echo "[+] Enable test coverage: $ENABLE_TEST_COVERAGE."
-    AUTO_BUILD_COMMAND+="ENABLE_TEST_COVERAGE=yes "
-fi
-
+AUTO_BUILD_COMMAND+="ENABLE_UT_SPECIFIC_TEST=$ENABLE_UT_SPECIFIC_TEST "
+AUTO_BUILD_COMMAND+="ENABLE_VALGRIND=$ENABLE_VALGRIND "
+AUTO_BUILD_COMMAND+="ENABLE_TEST_COVERAGE=$ENABLE_TEST_COVERAGE "
+AUTO_BUILD_COMMAND+="&& echo '================== COMPILATION START ==================' "
 AUTO_BUILD_COMMAND+="&& make "
+AUTO_BUILD_COMMAND+="&& echo '================== COMPILATION DONE ==================' "
 
-if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
-    echo "[+] Enable valgrind: yes."
-    AUTO_BUILD_COMMAND+="&& valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all --xml=yes --xml-file=unittest/valgrind/memory_leak_report.xml ./itc_platform_unittest "
-else
-    AUTO_BUILD_COMMAND+="&& ./itc_platform_unittest "
-fi
+if  [[ "$BUILD_TYPE" == "unittest" ]]; then
+    AUTO_BUILD_COMMAND+="&& echo '================== UNIT TEST START ==================' "
+    AUTO_BUILD_COMMAND+="&& for i in {1..$UT_REPEAT_COUNT}; do "
+    
+    if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
+        AUTO_BUILD_COMMAND+="valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all --xml=yes --xml-file=$VALGRIND_REPORT_XML $UNITTEST_PROGRAM"
+    else
+        AUTO_BUILD_COMMAND+="$UNITTEST_PROGRAM"
+    fi
+    
+    AUTO_BUILD_COMMAND+="; done > $UNITTEST_LOG 2>&1 || true "
+    
+    if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
+        INCLUDE_DIRS=("sw/itc-api/if" "sw/itc-common/if" "sw/itc-api/inc" "sw/itc-common/inc" "sw/itc-api/src" "sw/itc-common/src")
 
-AUTO_BUILD_COMMAND+="> unittest/test-results/itc_platform_unittest.log 2>&1 "
+        AUTO_BUILD_COMMAND+="&& mkdir -p $TEST_COVERAGE_OUTPUT "
 
-if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
-    # Define directories to include
-    INCLUDE_DIRS=("sw/itc-api/if" "sw/itc-common/if" "sw/itc-api/inc" "sw/itc-common/inc" "sw/itc-api/src" "sw/itc-common/src")
+        INCLUDE_FLAGS=""
+        for dir in "${INCLUDE_DIRS[@]}"; do
+            INCLUDE_FLAGS+="--include $dir "
+        done
 
-	# Define directories to exclude
-    EXCLUDE_DIRS=("sw/itc-api/unittest" "sw/itc-common/unittest" "/usr/include" "/usr/local/include")
-
-    # Define output directory
-    OUTPUT_DIR="unittest/coverage"
-    AUTO_BUILD_COMMAND+="&& mkdir -p '$OUTPUT_DIR' "
-
-    # Convert arrays to space-separated strings
-    INCLUDE_FLAGS=""
-    for dir in "${INCLUDE_DIRS[@]}"; do
-        INCLUDE_FLAGS+="--include '$dir/*' "
-    done
-
-	# Convert arrays to space-separated strings
-    EXCLUDE_FLAGS=""
-    for dir in "${EXCLUDE_DIRS[@]}"; do
-        EXCLUDE_FLAGS+="--exclude '$dir/*' "
-    done
-
-	# NON_PORTABLE_LCOV_IGNORING_OPTIONS="--ignore-errors empty --ignore-errors unused "
+		# NON_PORTABLE_LCOV_IGNORING_OPTIONS="--ignore-errors empty --ignore-errors unused "
 	NON_PORTABLE_LCOV_IGNORING_OPTIONS=""
 	# NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
-	NON_PORTABLE_LCOV_FILTERING_OPTION="$EXCLUDE_FLAGS"
-    # Run lcov to capture coverage
-    AUTO_BUILD_COMMAND+="&& lcov --capture --directory sw/ $NON_PORTABLE_LCOV_FILTERING_OPTION --output-file '$OUTPUT_DIR/coverage.info' $NON_PORTABLE_LCOV_IGNORING_OPTIONS "
+	NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
+        AUTO_BUILD_COMMAND+="&& lcov --capture --directory sw/ $NON_PORTABLE_LCOV_FILTERING_OPTION --output-file $TEST_COVERAGE_INFO $NON_PORTABLE_LCOV_IGNORING_OPTIONS "
+
+        AUTO_BUILD_COMMAND+="&& genhtml $TEST_COVERAGE_INFO --output-directory $TEST_COVERAGE_OUTPUT "
+    fi
     
-    # Generate html visualisation
-    AUTO_BUILD_COMMAND+="&& genhtml '$OUTPUT_DIR/coverage.info' --output-directory '$OUTPUT_DIR/output' "
-fi
-
-
-# Guide line
-if [[ "$ENABLE_UT" != "no" ]]; then
     AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& echo '| Unit test logs saved in: unittest/test-results/itc_platform_unittest.log |' "
+    AUTO_BUILD_COMMAND+="&& echo '[+] Unit test logs saved in: $UNITTEST_LOG' "
+    if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
+        AUTO_BUILD_COMMAND+="&& echo '[+] Valgrind report saved in: $VALGRIND_REPORT_XML' "
+    fi
+    if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
+        AUTO_BUILD_COMMAND+="&& echo '[+] Coverage info saved in: $TEST_COVERAGE_INFO' "
+        AUTO_BUILD_COMMAND+="&& echo '[+] Please run the command below to see test coverage report:' "
+        AUTO_BUILD_COMMAND+="&& echo '[+] >> xdg-open $TEST_COVERAGE_OUTPUT/index.html' "
+        AUTO_BUILD_COMMAND+="&& echo '[+] Or upload $TEST_COVERAGE_INFO file to lcov-viewer, an online tool:' "
+        AUTO_BUILD_COMMAND+="&& echo '[+] >> https://lcov-viewer.netlify.app/' "
+    fi
     AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-fi
-
-if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& echo '| Valgrind report saved in: unittest/valgrind/memory_leak_report.xml       |' "
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-fi
-
-if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& echo '| Coverage info saved in: unittest/coverage/coverage.info                  |' "
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& echo '| RUN BELOW COMMANDS TO SEE TEST COVERAGE REPORT                           |' "
-    AUTO_BUILD_COMMAND+="&& echo '| >> xdg-open unittest/coverage/output/index.html                          |' "
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& echo '| OR UPLOAD unittest/coverage/coverage.info FILE                           |' "
-    AUTO_BUILD_COMMAND+="&& echo '| TO LCOV VIEWER ONLINE TOOL                                               |' "
-    AUTO_BUILD_COMMAND+="&& echo '| >> https://lcov-viewer.netlify.app/                                      |' "
-    AUTO_BUILD_COMMAND+="&& echo '============================================================================' "
-    AUTO_BUILD_COMMAND+="&& lcov -q -l unittest/coverage/coverage.info "
+    AUTO_BUILD_COMMAND+="&& echo '================== UNIT TEST DONE ==================' "
+    
 fi
 
 # Print final configuration command
@@ -189,3 +193,41 @@ echo "[+] Running: $AUTO_BUILD_COMMAND"
 
 # Execute the configuration command
 eval "$AUTO_BUILD_COMMAND"
+
+# Verify output
+if  [[ "$BUILD_TYPE" == "unittest" ]]; then
+    grep -Eq 'PASSED' $UNITTEST_LOG && echo -e '[+] UNIT TEST: \t\t [PASSED] ✅' || echo -e '[-] UNIT TEST: \t\t [FAILED] ❌'
+    
+    if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
+        grep -Eq '<error>|<fatal_signal>' $VALGRIND_REPORT_XML && echo -e '[-] VALGRIND TEST: \t [FAILED] ❌' || echo -e '[+] VALGRIND TEST: \t [PASSED] ✅'
+    fi
+    
+    if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
+        GENHTML_OUTPUT="genhtml $TEST_COVERAGE_INFO --output-directory $TEST_COVERAGE_OUTPUT"
+        
+        # Extract line and function coverage percentages using grep and sed
+        LINES_RATE=$($GENHTML_OUTPUT | grep "lines......:" | sed -E 's/.*: ([0-9]+\.[0-9]+)%.*/\1/')
+        FUNCTIONS_RATE=$($GENHTML_OUTPUT | grep "functions......:" | sed -E 's/.*: ([0-9]+\.[0-9]+)%.*/\1/')
+        # LINES_RATE=$($GENHTML_OUTPUT | awk '/lines\.+:/ {print $2}' | tr -d '%')
+        # FUNCTIONS_RATE=$($GENHTML_OUTPUT | awk '/functions\.+:/ {print $2}' | tr -d '%')
+        
+        # Handle empty or invalid values
+        if [[ -z "$LINES_RATE" || -z "$FUNCTIONS_RATE" ]]; then
+            echo "[-] ERROR: Failed to extract coverage rates"
+            exit 1
+        fi
+        
+        # echo "Line Coverage     : $LINES_RATE%"
+        # echo "Function Coverage : $FUNCTIONS_RATE%"
+        
+        # Check if both are >= $TEST_COVERAGE_RATE or 92% by default
+        LINES_RATE_PASSED=$(echo "$LINES_RATE >= $TEST_COVERAGE_RATE" | bc)
+        FUNCTIONS_RATE_PASSED=$(echo "$FUNCTIONS_RATE >= $TEST_COVERAGE_RATE" | bc)
+        
+        if [[ "$LINES_RATE_PASSED" -eq 1 && "$FUNCTIONS_RATE_PASSED" -eq 1 ]]; then
+            echo -e '[+] COVERAGE TEST: \t [PASSED] ✅'
+        else
+            echo -e '[-] COVERAGE TEST: \t [FAILED] ❌'
+        fi
+    fi
+fi

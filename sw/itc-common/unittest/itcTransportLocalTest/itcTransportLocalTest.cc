@@ -4,19 +4,16 @@
 #include <memory>
 #include <string>
 #include <gtest/gtest.h>
-#include <gmock/gmock.h>
 
-#include "itcPlatformIfMock.h"
+#include "itcThreadPool.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
 using namespace testing;
-using ::testing::AtLeast;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using ItcPlatformIfReturnCode = ItcPlatformIf::ItcPlatformIfReturnCode;
-using ItcTransportIfReturnCode = ItcTransportIf::ItcTransportIfReturnCode;
 
 class ItcTransportLocalTest : public testing::Test
 {
@@ -29,8 +26,39 @@ protected:
     
     void SetUp() override
     {
+        m_regionId = 0x00200000;
         m_transportLocal = ItcTransportLocal::getInstance().lock();
-        m_itcPlatformIfMock = ItcPlatformIfMock::getInstance().lock();
+        SmartContainer<ItcMailbox>::Callback callback = {
+            [](const ItcMailbox &mbox) -> std::string
+            {
+                return mbox.name;
+            },
+            [](ItcMailbox &mbox)
+            {
+                mbox.reset();
+            }
+        };
+        m_mboxList = std::make_shared<SmartContainer<ItcMailbox>>(callback);
+        m_transportLocal->m_mboxList = m_mboxList;
+        if(auto indexOpt = m_transportLocal->m_mboxList.lock()->emplace(ItcMailbox("sender")); indexOpt.has_value())
+        {
+            if(auto mboxOpt = m_transportLocal->m_mboxList.lock()->at(indexOpt.value()); mboxOpt.has_value())
+            {
+                m_sender = m_regionId | (indexOpt.value() & ITC_MASK_UNIT_ID);
+                mboxOpt.value().get().mailboxId = m_sender;
+                m_senderMbox = m_transportLocal->m_mboxList.lock()->data(indexOpt.value());
+            }
+        }
+        if(auto indexOpt = m_transportLocal->m_mboxList.lock()->emplace(ItcMailbox("receiver")); indexOpt.has_value())
+        {
+            if(auto mboxOpt = m_transportLocal->m_mboxList.lock()->at(indexOpt.value()); mboxOpt.has_value())
+            {
+                m_receiver = m_regionId | (indexOpt.value() & ITC_MASK_UNIT_ID);
+                mboxOpt.value().get().mailboxId = m_receiver;
+                m_receiverMbox = m_transportLocal->m_mboxList.lock()->data(indexOpt.value());
+            }
+        }
+        m_threadPool = std::make_shared<ThreadPool>(5);
     }
 
     void TearDown() override
@@ -48,333 +76,249 @@ protected:
          * and reset() it on purpose.
          */
         m_transportLocal->m_instance.reset();
-        m_itcPlatformIfMock->m_instance.reset();
     }
 
 protected:
-    std::shared_ptr<ItcTransportLocal> m_transportLocal;
-    std::shared_ptr<ItcPlatformIfMock> m_itcPlatformIfMock;
+    std::shared_ptr<ItcTransportLocal> m_transportLocal  {nullptr};
+    itc_mailbox_id_t m_regionId {ITC_MAILBOX_ID_DEFAULT};
+    itc_mailbox_id_t m_sender {ITC_MAILBOX_ID_DEFAULT};
+    itc_mailbox_id_t m_receiver {ITC_MAILBOX_ID_DEFAULT};
+    std::shared_ptr<SmartContainer<ItcMailbox>> m_mboxList {nullptr};
+    std::shared_ptr<ThreadPool> m_threadPool {nullptr};
+    ItcMailboxRawPtr m_senderMbox {nullptr};
+    ItcMailboxRawPtr m_receiverMbox {nullptr};
 };
 
-TEST_F(ItcTransportLocalTest, getUnitInfoIndexTest1)
+TEST_F(ItcTransportLocalTest, sendTest1)
 {
     /***
-     * Test scenario: test did not call initialise() yet.
+     * Test scenario: test send a message to a mailbox.
      */
-    ssize_t index = m_transportLocal->getUnitInfoIndex(ITC_NO_MAILBOX_ID);
-    ASSERT_EQ(index, -1);
-}
-
-TEST_F(ItcTransportLocalTest, getUnitInfoIndexTest2)
-{
-    /***
-     * Test scenario: test wrong regionId.
-     */
-    itc_mailbox_id_t mboxId = 0x00100001;
-    m_transportLocal->m_regionId = 0x00200000;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
+    uint32_t msgno = 0xAAAABBBB;
+    auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
+    sentMessage->receiver = m_receiver;
+    sentMessage->sender = m_sender;
     
-    ssize_t index = m_transportLocal->getUnitInfoIndex(mboxId);
-    ASSERT_EQ(index, -2);
+    auto rc = m_transportLocal->send(sentMessage);
+    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK));
+    auto mboxOpt = m_transportLocal->m_mboxList.lock()->at("receiver");
+    ASSERT_EQ(mboxOpt.has_value(), true);
+    auto &mbox = mboxOpt.value().get();
+    ASSERT_EQ(mbox.m_rxMsgQueue.size(), 1);
+    ASSERT_EQ(mbox.m_rxMsgQueue.front(), sentMessage);
 }
 
-TEST_F(ItcTransportLocalTest, getUnitInfoIndexTest3)
+TEST_F(ItcTransportLocalTest, sendReceiveTest1)
 {
     /***
-     * Test scenario: test unitId exceeds m_unitCount.
+     * Test scenario: test send/receive a message to/from a mailbox.
      */
-    itc_mailbox_id_t mboxId = 0x0010000A;
-    m_transportLocal->m_regionId = 0x00100000;
-    m_transportLocal->m_unitCount = 9;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
+    uint32_t msgno = 0xAAAABBBB;
+    auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
+    sentMessage->receiver = m_receiver;
+    sentMessage->sender = m_sender;
     
-    ssize_t index = m_transportLocal->getUnitInfoIndex(mboxId);
-    ASSERT_EQ(index, -3);
-}
-
-TEST_F(ItcTransportLocalTest, getUnitInfoIndexTest4)
-{
-    /***
-     * Test scenario: test happy case that successfully obtains UnitInfo's index in m_unitInfos.
-     */
-    itc_mailbox_id_t mboxId = 0x0010000A;
-    m_transportLocal->m_regionId = 0x00100000;
-    m_transportLocal->m_unitCount = 100;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
+    auto rc = m_transportLocal->send(sentMessage);
+    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK));
+    auto mboxOpt = m_transportLocal->m_mboxList.lock()->at("receiver");
+    ASSERT_EQ(mboxOpt.has_value(), true);
+    auto &mbox = mboxOpt.value().get();
+    ASSERT_EQ(mbox.m_rxMsgQueue.size(), 1);
+    ASSERT_EQ(mbox.m_rxMsgQueue.front(), sentMessage);
     
-    ssize_t index = m_transportLocal->getUnitInfoIndex(mboxId);
-    ASSERT_EQ(index, 0xA);
+    auto receivedMsg = m_transportLocal->receive(m_receiverMbox, ITC_MODE_TIMEOUT_NO_WAIT);
+    ASSERT_EQ(receivedMsg, sentMessage);
+    ItcAdminMessageHelper::deallocate(receivedMsg);
 }
 
-TEST_F(ItcTransportLocalTest, releaseUnitInfoTest1)
+TEST_F(ItcTransportLocalTest, sendReceiveTest2)
 {
     /***
-     * Test scenario: test happy case that drops out one ItcAdminMessageRawPtr in the rx queue.
+     * Test scenario: test one thread sends and another thread receives a message.
      */
-    itc_mailbox_id_t mboxId = 0x00100000;
-    m_transportLocal->m_regionId = 0x00100000;
-    m_transportLocal->m_unitCount = 100;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    auto &unitInfo = m_transportLocal->m_unitInfos.front();
-    itc_mailbox_id_t sender = 0x00300001;
-    itc_mailbox_id_t receiver = 0x00300004;
-    uint32_t msgno = 0x0000FFFF;
-    auto adminMsg = new ItcAdminMessage(sender, receiver, ITC_FLAG_NO_FLAG, sizeof(msgno), msgno);
-    unitInfo.rxMsgQueue.push(adminMsg);
-    EXPECT_CALL(*m_itcPlatformIfMock, deleteMessage(
-        Truly([&adminMsg](ItcMessageRawPtr msg)
+    
+    std::vector<std::future<ItcAdminMessageRawPtr>> results;
+    results.emplace_back(
+        m_threadPool->enqueue(
+            /* receiver thread */
+            [this]()
+            {
+                return this->m_transportLocal->receive(m_receiverMbox);
+            }
+        )
+    );
+    
+    uint32_t msgno = 0xAAAABBBB;
+    auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
+    sentMessage->receiver = m_receiver;
+    sentMessage->sender = m_sender;
+    
+    results.emplace_back(
+        m_threadPool->enqueue(
+            /* sender thread */
+            [this, sentMessage]()
+            {
+                m_transportLocal->send(sentMessage);
+                return static_cast<ItcAdminMessageRawPtr>(nullptr);
+            }
+        )
+    );
+    
+    ASSERT_EQ(results.front().get(), sentMessage);
+    ItcAdminMessageHelper::deallocate(sentMessage);
+}
+
+TEST_F(ItcTransportLocalTest, sendReceiveTest3)
+{
+    /***
+     * Test scenario: test multiple threads send and one thread receives a messages.
+     */
+    std::vector<std::future<bool>> results;
+    std::mutex receivedMsgsMutex;
+    uint32_t NUMBER_OF_MESSAGES = 20;
+    std::vector<ItcAdminMessageRawPtr> receivedMsgs;
+    receivedMsgs.reserve(10);
+    results.emplace_back(
+        m_threadPool->enqueue(
+            /* receiver thread */
+            [this, &receivedMsgs, &receivedMsgsMutex, NUMBER_OF_MESSAGES]()
+            {
+                while(true)
+                {
+                    auto receivedMsg = this->m_transportLocal->receive(m_receiverMbox);
+                    
+                    std::scoped_lock lock(receivedMsgsMutex);
+                    receivedMsgs.emplace_back(receivedMsg);
+                    if(receivedMsgs.size() >= NUMBER_OF_MESSAGES)
+                    {
+                        break;
+                    }
+                }
+                return true;
+            }
+        )
+    );
+    
+    uint32_t msgno = 0xAAAABBBB;
+    for(size_t i = 0; i < NUMBER_OF_MESSAGES; ++i)
+    {
+        m_threadPool->enqueue(
+            /* sender thread */
+            [this, msgno, i]()
+            {
+                auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
+                sentMessage->receiver = this->m_receiver;
+                sentMessage->sender = this->m_sender;
+                this->m_transportLocal->send(sentMessage);
+            }
+        );
+    }
+    
+    results.front().get();
+    
+    ASSERT_EQ(receivedMsgs.size(), NUMBER_OF_MESSAGES);
+    for(size_t i = 0; i < NUMBER_OF_MESSAGES; ++i)
+    {
+        std::scoped_lock lock(receivedMsgsMutex);
+        ItcAdminMessageHelper::deallocate(receivedMsgs.at(i));
+    }
+}
+
+TEST_F(ItcTransportLocalTest, sendReceiveTest4)
+{
+    /***
+     * Test scenario: test sender and receiver mailboxes communicate to each other.
+     */
+    enum MESSAGE_SIGNAL_NUMBER
+    {
+        MODULE_XYZ_INTERFACE_ABC_SETUP_REQ = 0xAAAABBBB,
+        MODULE_XYZ_INTERFACE_ABC_SETUP_CFM,
+        MODULE_XYZ_INTERFACE_ABC_ACTIVATE_REQ,
+        MODULE_XYZ_INTERFACE_ABC_ACTIVATE_CFM
+    };
+    
+    m_threadPool->enqueue(
+        /* receiver thread */
+        [this]()
         {
-            ItcAdminMessageRawPtr adminMsgInArg = CONVERT_TO_ADMIN_MESSAGE(msg);
-            bool isMatchedExpectation = adminMsgInArg->sender == adminMsg->sender &&
-                                        adminMsgInArg->receiver == adminMsg->receiver &&
-                                        adminMsgInArg->msgno == adminMsg->msgno;
-            delete adminMsgInArg;
-            return isMatchedExpectation;
-        })
-    )).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK)));
+            while(true)
+            {
+                auto receivedMsg = this->m_transportLocal->receive(m_receiverMbox);
+                if(receivedMsg)
+                {
+                    switch (receivedMsg->msgno)
+                    {
+                    case MODULE_XYZ_INTERFACE_ABC_SETUP_REQ:
+                        {
+                            auto sentMessage = ItcAdminMessageHelper::allocate(MODULE_XYZ_INTERFACE_ABC_SETUP_CFM);
+                            sentMessage->receiver = this->m_sender;
+                            sentMessage->sender = this->m_receiver;
+                            this->m_transportLocal->send(sentMessage);
+                            ItcAdminMessageHelper::deallocate(receivedMsg);
+                            break;
+                        }
+                    
+                    case MODULE_XYZ_INTERFACE_ABC_ACTIVATE_REQ:
+                        {
+                            auto sentMessage = ItcAdminMessageHelper::allocate(MODULE_XYZ_INTERFACE_ABC_ACTIVATE_CFM);
+                            sentMessage->receiver = this->m_sender;
+                            sentMessage->sender = this->m_receiver;
+                            this->m_transportLocal->send(sentMessage);
+                            ItcAdminMessageHelper::deallocate(receivedMsg);
+                            return;
+                        }
+                    
+                    default:
+                        return;
+                    }   
+                }
+            }
+        }
+    );
     
-    ssize_t atIndex = 0;
-    m_transportLocal->releaseUnitInfo(atIndex);
-    ASSERT_EQ(unitInfo.mailboxId, ITC_NO_MAILBOX_ID);
-    ASSERT_EQ(unitInfo.flags, 0);
-    ASSERT_EQ(unitInfo.isInUse, false);
-    ASSERT_EQ(unitInfo.rxMsgQueue.empty(), true);
-}
-
-TEST_F(ItcTransportLocalTest, initialiseTest1)
-{
-    /***
-     * Test scenario: test accidentally call initialise(),
-     * although already initialised without ITC_FLAG_FORCE_REINIT_TRANSPORTS.
-     */
-    itc_mailbox_id_t mboxId = 0x00100000;
-    itc_mailbox_id_t regionId = 0x00100000;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    
-    auto rc = m_transportLocal->initialise(regionId, 5, ITC_FLAG_NO_FLAG);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_ALREADY_INITIALISED));
-}
-
-TEST_F(ItcTransportLocalTest, initialiseTest2)
-{
-    /***
-     * Test scenario: test ITC_FLAG_FORCE_REINIT_TRANSPORTS.
-     */
-    itc_mailbox_id_t mboxId = 0x00100000;
-    itc_mailbox_id_t regionId = 0x00100000;
-    uint32_t mboxCount = 5;
-    uint32_t unitCount = (0xFFFFFFFF >> COUNT_LEADING_ZEROS(mboxCount)) + 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    m_transportLocal->m_unitCount = 1;
-    auto &unitInfo = m_transportLocal->m_unitInfos.front();
-    itc_mailbox_id_t sender = 0x00300001;
-    itc_mailbox_id_t receiver = 0x00300004;
-    uint32_t msgno = 0x0000FFFF;
-    auto adminMsg = new ItcAdminMessage(sender, receiver, ITC_FLAG_NO_FLAG, sizeof(msgno), msgno);
-    unitInfo.rxMsgQueue.push(adminMsg);
-    ASSERT_EQ(m_transportLocal->m_unitInfos.size(), 1);
-    ASSERT_EQ(unitInfo.rxMsgQueue.size(), 1);
-    
-    /* This EXPECT_CALL is for deleteMessage inside releaseUnitInfo */
-    EXPECT_CALL(*m_itcPlatformIfMock, deleteMessage(
-        Truly([&adminMsg](ItcMessageRawPtr msg)
+    auto isFinished = m_threadPool->enqueue(
+        /* sender thread */
+        [this]()
         {
-            ItcAdminMessageRawPtr adminMsgInArg = CONVERT_TO_ADMIN_MESSAGE(msg);
-            bool isMatchedExpectation = adminMsgInArg->sender == adminMsg->sender &&
-                                        adminMsgInArg->receiver == adminMsg->receiver &&
-                                        adminMsgInArg->msgno == adminMsg->msgno;
-            delete adminMsgInArg;
-            return isMatchedExpectation;
-        })
-    )).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK)));
+            auto sentMessage = ItcAdminMessageHelper::allocate(MODULE_XYZ_INTERFACE_ABC_SETUP_REQ);
+            sentMessage->receiver = this->m_receiver;
+            sentMessage->sender = this->m_sender;
+            this->m_transportLocal->send(sentMessage);
+            
+            while(true)
+            {
+                auto receivedMsg = this->m_transportLocal->receive(m_senderMbox);
+                if(receivedMsg)
+                {
+                    switch (receivedMsg->msgno)
+                    {
+                    case MODULE_XYZ_INTERFACE_ABC_SETUP_CFM:
+                        {
+                            auto sentMessage = ItcAdminMessageHelper::allocate(MODULE_XYZ_INTERFACE_ABC_ACTIVATE_REQ);
+                            sentMessage->receiver = this->m_receiver;
+                            sentMessage->sender = this->m_sender;
+                            this->m_transportLocal->send(sentMessage);
+                            ItcAdminMessageHelper::deallocate(receivedMsg);
+                            break;
+                        }
+                    
+                    case MODULE_XYZ_INTERFACE_ABC_ACTIVATE_CFM:
+                        {
+                            ItcAdminMessageHelper::deallocate(receivedMsg);
+                            return true;
+                        }
+                    
+                    default:
+                        return false;
+                    }
+                }
+            }
+            return false;
+        }
+    );
     
-    auto rc = m_transportLocal->initialise(regionId, mboxCount, ITC_FLAG_FORCE_REINIT_TRANSPORTS);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-    ASSERT_EQ(m_transportLocal->m_regionId, regionId);
-    ASSERT_EQ(m_transportLocal->m_unitCount, unitCount);
-    ASSERT_EQ(m_transportLocal->m_unitInfos.size(), unitCount);
-}
-
-TEST_F(ItcTransportLocalTest, initialiseTest3)
-{
-    /***
-     * Test scenario: test a fresh initialise().
-     */
-    itc_mailbox_id_t regionId = 0x00100000;
-    uint32_t mboxCount = 5;
-    uint32_t unitCount = (0xFFFFFFFF >> COUNT_LEADING_ZEROS(mboxCount)) + 1;
-    
-    auto rc = m_transportLocal->initialise(regionId, mboxCount, ITC_FLAG_NO_FLAG);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-    ASSERT_EQ(m_transportLocal->m_regionId, regionId);
-    ASSERT_EQ(m_transportLocal->m_unitCount, unitCount);
-    ASSERT_EQ(m_transportLocal->m_unitInfos.size(), unitCount);
-}
-
-TEST_F(ItcTransportLocalTest, releaseTest1)
-{
-    /***
-     * Test scenario: test a fresh release() with a simulated internal mailbox of ITC system.
-     */
-    m_transportLocal->m_unitInfos.emplace_back(ITC_NO_MAILBOX_ID, ITC_FLAG_NO_FLAG, true);
-    
-    auto rc = m_transportLocal->release();
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-    ASSERT_EQ(m_transportLocal->m_unitInfos.empty(), true);
-}
-
-TEST_F(ItcTransportLocalTest, releaseTest2)
-{
-    /***
-     * Test scenario: test call release() when there are user-created running mailboxes.
-     */
-    m_transportLocal->m_unitInfos.emplace_back(ITC_NO_MAILBOX_ID, ITC_FLAG_NO_FLAG, true);
-    m_transportLocal->m_unitInfos.emplace_back(ITC_NO_MAILBOX_ID, ITC_FLAG_NO_FLAG, true);
-    
-    auto rc = m_transportLocal->release();
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_OPERATION));
-    ASSERT_EQ(m_transportLocal->m_unitInfos.size(), 2);
-}
-
-TEST_F(ItcTransportLocalTest, createMailboxTest1)
-{
-    /***
-     * Test scenario: test createMailbox() with a mailbox ID already occupied by another.
-     */
-    bool isAlreadyInUse = true;
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, isAlreadyInUse);
-    ItcMailbox mbox {"dummyMbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    
-    auto rc = m_transportLocal->createMailbox(&mbox);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_ALREADY_IN_USE));
-}
-
-TEST_F(ItcTransportLocalTest, createMailboxTest2)
-{
-    /***
-     * Test scenario: test createMailbox() successfully.
-     */
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, false);
-    auto &unitInfo = m_transportLocal->m_unitInfos.front();
-    ItcMailbox mbox {"dummyMbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    
-    auto rc = m_transportLocal->createMailbox(&mbox);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-    ASSERT_EQ(unitInfo.mailboxId, mboxId);
-    ASSERT_EQ(unitInfo.flags, ITC_FLAG_NO_FLAG);
-    ASSERT_EQ(unitInfo.isInUse, true);
-}
-
-TEST_F(ItcTransportLocalTest, deleteMailboxTest1)
-{
-    /***
-     * Test scenario: test deleteMailbox() with a mailbox ID not created yet.
-     */
-    bool isCreatedYet = false;
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, isCreatedYet);
-    ItcMailbox mbox {"dummyMbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    
-    auto rc = m_transportLocal->deleteMailbox(&mbox);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_OPERATION));
-}
-
-TEST_F(ItcTransportLocalTest, deleteMailboxTest2)
-{
-    /***
-     * Test scenario: test deleteMailbox() successfully.
-     */
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    ItcMailbox mbox {"dummyMbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    
-    auto rc = m_transportLocal->deleteMailbox(&mbox);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-}
-
-TEST_F(ItcTransportLocalTest, sendMessageTest1)
-{
-    /***
-     * Test scenario: test send messages to a not-created-yet mailbox.
-     */
-    bool isCreatedYet = false;
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, isCreatedYet);
-    ItcAdminMessageRawPtr adminMsg = new ItcAdminMessage;
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, mboxId};
-    
-    auto rc = m_transportLocal->sendMessage(adminMsg, toMboxInfo);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_OPERATION));
-    delete adminMsg;
-}
-
-TEST_F(ItcTransportLocalTest, sendMessageTest2)
-{
-    /***
-     * Test scenario: test send messages to a not-created-yet mailbox.
-     */
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    ItcAdminMessageRawPtr adminMsg = new ItcAdminMessage(ITC_NO_MAILBOX_ID, mboxId);
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, mboxId};
-    auto &unitInfo = m_transportLocal->m_unitInfos.front();
-    
-    auto rc = m_transportLocal->sendMessage(adminMsg, toMboxInfo);
-    ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
-    ASSERT_EQ(unitInfo.rxMsgQueue.size(), 1);
-    ASSERT_EQ(unitInfo.rxMsgQueue.front()->receiver, mboxId);
-    delete adminMsg;
-}
-
-TEST_F(ItcTransportLocalTest, receiveMessageTest1)
-{
-    /***
-     * Test scenario: test receive messages on a not-created-yet mailbox.
-     */
-    bool isCreatedYet = false;
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, isCreatedYet);
-    ItcMailbox mbox {"myMailbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    
-    auto receivedMsg = m_transportLocal->receiveMessage(&mbox);
-    ASSERT_EQ(receivedMsg, nullptr);
-}
-
-TEST_F(ItcTransportLocalTest, receiveMessageTest2)
-{
-    /***
-     * Test scenario: test send messages to a not-created-yet mailbox.
-     */
-    itc_mailbox_id_t mboxId = 0x000100000;
-    m_transportLocal->m_regionId = 0x000100000;
-    m_transportLocal->m_unitCount = 1;
-    m_transportLocal->m_unitInfos.emplace_back(mboxId, ITC_FLAG_NO_FLAG, true);
-    ItcAdminMessageRawPtr adminMsg = new ItcAdminMessage(ITC_NO_MAILBOX_ID, mboxId);
-    ItcMailbox mbox {"myMailbox", mboxId, MailboxState::MBOX_STATE_INUSE};
-    auto &unitInfo = m_transportLocal->m_unitInfos.front();
-    unitInfo.rxMsgQueue.push(adminMsg);
-    
-    auto receivedMsg = m_transportLocal->receiveMessage(&mbox);
-    ASSERT_EQ(receivedMsg, adminMsg);
-    ASSERT_EQ(unitInfo.rxMsgQueue.size(), 0);
-    delete adminMsg;
+    ASSERT_EQ(isFinished.get(), true);
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

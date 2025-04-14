@@ -5,7 +5,7 @@
 
 #include "itc.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -14,23 +14,25 @@ namespace ItcPlatform
 namespace INTERNAL
 {
 
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 
-static constexpr uint32_t ITC_ETHERNET_MESSAGE_NUMBER_BASE 		    			= (ITC_SYSTEM_BASE + 0x100);
-static constexpr uint32_t ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REQUEST 		= (ITC_ETHERNET_MESSAGE_NUMBER_BASE + 0x1);
-static constexpr uint32_t ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REPLY			= (ITC_ETHERNET_MESSAGE_NUMBER_BASE + 0x2);
+#define ITC_ETHERNET_MESSAGE_NUMBER_BASE 		    			(uint32_t)(ITC_SYSTEM_BASE + 0x100)
+#define ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REQUEST 			(uint32_t)(ITC_ETHERNET_MESSAGE_NUMBER_BASE + 0x1)
+#define ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REPLY			(uint32_t)(ITC_ETHERNET_MESSAGE_NUMBER_BASE + 0x2)
 
-struct itc_ethernet_message_locate_itc_server_request {
-	uint32_t    		msgno {ITC_MESSAGE_NUMBER_UNDEFINED};
+struct itc_ethernet_message_locate_itc_server_request
+{
+	uint32_t    		msgno {ITC_MESSAGE_MSGNO_DEFAULT};
 	int32_t    			pid {-1};
 };
 
-struct itc_ethernet_message_locate_itc_server_reply {
-	uint32_t    		msgno {ITC_MESSAGE_NUMBER_UNDEFINED};
-	itc_mailbox_id_t    assignedRegionId {ITC_NO_MAILBOX_ID};
-	itc_mailbox_id_t	itcServerMboxId {ITC_NO_MAILBOX_ID};
+struct itc_ethernet_message_locate_itc_server_reply
+{
+	uint32_t    		msgno {ITC_MESSAGE_MSGNO_DEFAULT};
+	itc_mailbox_id_t    assignedRegionId {ITC_MAILBOX_ID_DEFAULT};
+	itc_mailbox_id_t	itcServerMboxId {ITC_MAILBOX_ID_DEFAULT};
 };
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

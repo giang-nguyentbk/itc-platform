@@ -8,7 +8,7 @@
 
 // #include <enumUtils.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -82,13 +82,13 @@ public:
 	 * 
 	 * If:
 	 * 	size_t itcDirStartPos = 2;
-	 * 	FileSystemIf::getInstance().lock()->createPath("/tmp/itc/abc/def", std::filesystem::perms::all, itcDirStartPos, PathType::DIRECTORY);
+	 * 	FileSystemIf::getInstance().lock()->createPath("/tmp/itc/abc/def", PathType::DIRECTORY, itcDirStartPos);
 	 * 
 	 * This itcDirStartPos = 2 means: all directories or files from position 2 is created
 	 * with permission 0777. More specifically, those directories "itc", "abc" and file "log.txt" are
 	 * under 0777 permission.
 	 */
-    virtual FileSystemIfReturnCode createPath(const std::filesystem::path &path, std::filesystem::perms mode, size_t pos, PathType type) = 0;
+    virtual FileSystemIfReturnCode createPath(const std::filesystem::path &path, PathType type, size_t pos = 0, std::filesystem::perms mode = std::filesystem::perms::all) = 0;
     virtual FileSystemIfReturnCode removePath(const std::filesystem::path &path) = 0;
     virtual bool exists(const std::filesystem::path &path) = 0;
     virtual bool isAccessible(const std::filesystem::path &path) = 0;
@@ -100,4 +100,4 @@ protected:
 }; // class FileSystemIf
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

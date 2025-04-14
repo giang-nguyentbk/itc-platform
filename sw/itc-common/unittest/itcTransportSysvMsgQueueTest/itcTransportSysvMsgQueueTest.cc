@@ -15,7 +15,7 @@
 
 #include "itcEthernetProto.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -24,7 +24,7 @@ using ::testing::AtLeast;
 using ::testing::Pointee;
 using ::testing::InSequence;
 using namespace testing;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using ItcTransportIfReturnCode = ItcTransportIf::ItcTransportIfReturnCode;
 using ItcPlatformIfReturnCode = ItcPlatformIf::ItcPlatformIfReturnCode;
 
@@ -98,7 +98,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest1)
      * Test scenario: test failed to ftok.
      */
     itc_mailbox_id_t mboxId = 0x00100004;
-    itc_mailbox_id_t newMboxId = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t newMboxId = mboxId & ITC_MASK_REGION_ID;
 	itc_mailbox_id_t projectId = newMboxId >> ITC_REGION_ID_SHIFT;
     EXPECT_CALL(*m_cWrapperIfMock, cFtok(
     Truly(
@@ -118,7 +118,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest2)
      * Test scenario: test failed to msgget.
      */
     itc_mailbox_id_t mboxId = 0x00100004;
-    itc_mailbox_id_t newMboxId = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t newMboxId = mboxId & ITC_MASK_REGION_ID;
 	itc_mailbox_id_t projectId = newMboxId >> ITC_REGION_ID_SHIFT;
     key_t mockedKey = 4;
     EXPECT_CALL(*m_cWrapperIfMock, cFtok(
@@ -140,7 +140,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest3)
      * Test scenario: test happy case.
      */
     itc_mailbox_id_t mboxId = 0x00100004;
-    itc_mailbox_id_t newMboxId = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t newMboxId = mboxId & ITC_MASK_REGION_ID;
 	itc_mailbox_id_t projectId = newMboxId >> ITC_REGION_ID_SHIFT;
     key_t mockedKey = 4;
     int32_t mockedMsgQueueId = 10;
@@ -257,15 +257,15 @@ TEST_F(ItcTransportSysvMsgQueueTest, parseAndForwardMessageTest4)
     adminMsg->receiver = receiver;
     adminMsg->msgno = msgno;
     adminMsg->size = sizeof(msgno);
-    adminMsg->flags = ITC_FLAG_NO_FLAG;
+    adminMsg->flags = ITC_FLAG_DEFAULT;
     uint8_t *endpoint = reinterpret_cast<uint8_t *>(adminMsg) + msgSize - 1;
     *endpoint = ITC_ADMIN_MESSAGE_ENDPOINT;
     auto *rxMsg = txBuffer;
     ItcAdminMessageRawPtr newMsg = reinterpret_cast<ItcAdminMessageRawPtr>(new uint8_t[msgSize]);
     newMsg->flags = flags;
     
-    EXPECT_CALL(*m_itcPlatformIfMock, createMessage(ITC_ADMIN_MESSAGE_MIN_SIZE, msgno)).Times(1).WillOnce(Return(CONVERT_TO_USER_MESSAGE(newMsg)));
-    EXPECT_CALL(*m_itcPlatformIfMock, sendMessage(CONVERT_TO_USER_MESSAGE(newMsg),
+    EXPECT_CALL(*m_itcPlatformIfMock, allocateMessage(msgno, ITC_MESSAGE_MSGNO_SIZE)).Times(1).WillOnce(Return(CONVERT_TO_USER_MESSAGE(newMsg)));
+    EXPECT_CALL(*m_itcPlatformIfMock, send(CONVERT_TO_USER_MESSAGE(newMsg),
     Truly(
         [&receiver](const MailboxContactInfo &toMbox)
         {
@@ -302,15 +302,15 @@ TEST_F(ItcTransportSysvMsgQueueTest, parseAndForwardMessageTest5)
     adminMsg->receiver = receiver;
     adminMsg->msgno = msgno;
     adminMsg->size = sizeof(msgno);
-    adminMsg->flags = ITC_FLAG_NO_FLAG;
+    adminMsg->flags = ITC_FLAG_DEFAULT;
     uint8_t *endpoint = reinterpret_cast<uint8_t *>(adminMsg) + msgSize - 1;
     *endpoint = ITC_ADMIN_MESSAGE_ENDPOINT;
     auto *rxMsg = txBuffer;
     ItcAdminMessageRawPtr newMsg = reinterpret_cast<ItcAdminMessageRawPtr>(new uint8_t[msgSize]);
     newMsg->flags = flags;
     
-    EXPECT_CALL(*m_itcPlatformIfMock, createMessage(ITC_ADMIN_MESSAGE_MIN_SIZE, msgno)).Times(1).WillOnce(Return(CONVERT_TO_USER_MESSAGE(newMsg)));
-    EXPECT_CALL(*m_itcPlatformIfMock, sendMessage(CONVERT_TO_USER_MESSAGE(newMsg),
+    EXPECT_CALL(*m_itcPlatformIfMock, allocateMessage(msgno, ITC_MESSAGE_MSGNO_SIZE)).Times(1).WillOnce(Return(CONVERT_TO_USER_MESSAGE(newMsg)));
+    EXPECT_CALL(*m_itcPlatformIfMock, send(CONVERT_TO_USER_MESSAGE(newMsg),
     Truly(
         [&receiver](const MailboxContactInfo &toMbox)
         {
@@ -378,7 +378,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, initialiseTest1)
      */
     m_transportSysvMsgQueue->m_isInitialised = true;
     
-    auto rc = m_transportSysvMsgQueue->initialise(ITC_NO_MAILBOX_ID, 1, ITC_FLAG_NO_FLAG);
+    auto rc = m_transportSysvMsgQueue->initialise(ITC_MAILBOX_ID_DEFAULT, 1, ITC_FLAG_DEFAULT);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_ALREADY_INITIALISED));
     ASSERT_EQ(m_transportSysvMsgQueue->m_isInitialised, true);
 }
@@ -400,7 +400,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, initialiseTest2)
     
     EXPECT_CALL(*m_fileSystemIfMock, createPath(_, _, _, _)).Times(1).WillOnce(Return(MAKE_RETURN_CODE(FileSystemIfReturnCode, ITC_FILESYSTEM_EXCEPTION_THROWN)));
     
-    auto rc = m_transportSysvMsgQueue->initialise(ITC_NO_MAILBOX_ID, 1, ITC_FLAG_FORCE_REINIT_TRANSPORTS);
+    auto rc = m_transportSysvMsgQueue->initialise(ITC_MAILBOX_ID_DEFAULT, 1, ITC_FLAG_FORCE_REINIT_TRANSPORTS);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR));
     ASSERT_EQ(m_transportSysvMsgQueue->m_isInitialised, false);
 }
@@ -450,17 +450,12 @@ TEST_F(ItcTransportSysvMsgQueueTest, initialiseTest4)
     EXPECT_CALL(*m_fileSystemIfMock, createPath(_, _, _, _)).Times(1).WillOnce(Return(MAKE_RETURN_CODE(FileSystemIfReturnCode, ITC_FILESYSTEM_OK)));
     EXPECT_CALL(*m_cWrapperIfMock, cPthreadKeyCreate(&m_transportSysvMsgQueue->m_destructKey, &destructRxThreadWrapper)).Times(1).WillOnce(Return(0));
     EXPECT_CALL(*m_threadManagerIfMock, addThread(
-        Truly(
-            [](const Task &task)
-            {
-                return task.taskFunc == &sysvMsgQueueRxThreadWrapper && task.taskArgs == nullptr;
-            }
-        ),
-        true,
-        Pointee(AllOf(
-            Field(&Signal::relativeTimeout, 1000)
-        ))
-    )).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK)));
+    Truly(
+        [](const Task &task)
+        {
+            return task.taskFunc == &sysvMsgQueueRxThreadWrapper && task.taskArgs == nullptr;
+        }
+    ), _, _)).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK)));
     
     itc_mailbox_id_t regionId = 0x00100000;
     
@@ -498,44 +493,44 @@ TEST_F(ItcTransportSysvMsgQueueTest, releaseTest2)
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
 }
 
-TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest1)
+TEST_F(ItcTransportSysvMsgQueueTest, sendTest1)
 {
     /***
      * Test scenario: test not initialised yet.
      */
     m_transportSysvMsgQueue->m_isInitialised = false;
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, ITC_NO_MAILBOX_ID};
+    MailboxContactInfo toMboxInfo {ITC_MAILBOX_ID_DEFAULT, ITC_MAILBOX_ID_DEFAULT};
     
-    auto rc = m_transportSysvMsgQueue->sendMessage(nullptr, toMboxInfo);
+    auto rc = m_transportSysvMsgQueue->send(nullptr, toMboxInfo);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_NOT_INITIALISED));
 }
 
-TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest2)
+TEST_F(ItcTransportSysvMsgQueueTest, sendTest2)
 {
     /***
      * Test scenario: test send to invalid regionId.
      */
     m_transportSysvMsgQueue->m_isInitialised = true;
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, 0x11100005};
+    MailboxContactInfo toMboxInfo {ITC_MAILBOX_ID_DEFAULT, 0x11100005};
     
-    auto rc = m_transportSysvMsgQueue->sendMessage(nullptr, toMboxInfo);
+    auto rc = m_transportSysvMsgQueue->send(nullptr, toMboxInfo);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_REGION));
 }
 
-TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest3)
+TEST_F(ItcTransportSysvMsgQueueTest, sendTest3)
 {
     /***
-     * Test scenario: test first try of sending returns EINTR, next try of sending is successful, but deleteMessage failed.
+     * Test scenario: test first try of sending returns EINTR, next try of sending is successful, but deallocateMessage failed.
      */
     m_transportSysvMsgQueue->m_isInitialised = true;
     itc_mailbox_id_t sender = 0x00100004;
     itc_mailbox_id_t receiver = 0x00100005;
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, receiver};
+    MailboxContactInfo toMboxInfo {ITC_MAILBOX_ID_DEFAULT, receiver};
     auto adminMsg = reinterpret_cast<ItcAdminMessageRawPtr>(new uint8_t[ITC_ADMIN_MESSAGE_MIN_SIZE]);
     adminMsg->sender = sender;
     adminMsg->receiver = receiver;
-    adminMsg->msgno = ITC_MESSAGE_NUMBER_UNDEFINED;
-    adminMsg->size = sizeof(uint32_t);
+    adminMsg->msgno = ITC_MESSAGE_MSGNO_DEFAULT;
+    adminMsg->size = ITC_MESSAGE_MSGNO_SIZE;
     int32_t msgQueueId = 4;
     m_transportSysvMsgQueue->m_contactList.at(0x001).msgQueueId = msgQueueId;
     
@@ -558,7 +553,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest3)
         EXPECT_CALL(*m_cWrapperIfMock, cMsgsnd(_, _, _, _)).Times(1).WillOnce(Return(0));
     }
     
-    EXPECT_CALL(*m_itcPlatformIfMock, deleteMessage(
+    EXPECT_CALL(*m_itcPlatformIfMock, deallocateMessage(
         Truly(
             [&adminMsg](ItcMessageRawPtr arg)
             {
@@ -568,25 +563,25 @@ TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest3)
         )
     )).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_FAILED)));
     
-    auto rc = m_transportSysvMsgQueue->sendMessage(adminMsg, toMboxInfo);
+    auto rc = m_transportSysvMsgQueue->send(adminMsg, toMboxInfo);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR));
     delete[] adminMsg;
 }
 
-TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest4)
+TEST_F(ItcTransportSysvMsgQueueTest, sendTest4)
 {
     /***
-     * Test scenario: test first try of sending returns EINVAL, next try of sending and deleteMessage are successful.
+     * Test scenario: test first try of sending returns EINVAL, next try of sending and deallocateMessage are successful.
      */
     m_transportSysvMsgQueue->m_isInitialised = true;
     itc_mailbox_id_t sender = 0x00100004;
     itc_mailbox_id_t receiver = 0x00100005;
-    MailboxContactInfo toMboxInfo {ITC_NO_MAILBOX_ID, receiver};
+    MailboxContactInfo toMboxInfo {ITC_MAILBOX_ID_DEFAULT, receiver};
     auto adminMsg = reinterpret_cast<ItcAdminMessageRawPtr>(new uint8_t[ITC_ADMIN_MESSAGE_MIN_SIZE]);
     adminMsg->sender = sender;
     adminMsg->receiver = receiver;
-    adminMsg->msgno = ITC_MESSAGE_NUMBER_UNDEFINED;
-    adminMsg->size = sizeof(uint32_t);
+    adminMsg->msgno = ITC_MESSAGE_MSGNO_DEFAULT;
+    adminMsg->size = ITC_MESSAGE_MSGNO_SIZE;
     int32_t msgQueueId = 4;
     m_transportSysvMsgQueue->m_contactList.at(0x001).msgQueueId = msgQueueId;
     
@@ -610,7 +605,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest4)
     }
     
     /* getMsgQueueId happy case */
-    itc_mailbox_id_t newMboxId = receiver & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t newMboxId = receiver & ITC_MASK_REGION_ID;
 	itc_mailbox_id_t projectId = newMboxId >> ITC_REGION_ID_SHIFT;
     key_t mockedKey = 4;
     int32_t mockedMsgQueueId = 10;
@@ -623,7 +618,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest4)
     ), projectId)).Times(1).WillOnce(Return(mockedKey));
     EXPECT_CALL(*m_cWrapperIfMock, cMsgGet(mockedKey, 0)).Times(1).WillOnce(Return(mockedMsgQueueId));
     
-    EXPECT_CALL(*m_itcPlatformIfMock, deleteMessage(
+    EXPECT_CALL(*m_itcPlatformIfMock, deallocateMessage(
         Truly(
             [&adminMsg](ItcMessageRawPtr arg)
             {
@@ -633,7 +628,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sendMessageTest4)
         )
     )).Times(1).WillOnce(Return(MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK)));
     
-    auto rc = m_transportSysvMsgQueue->sendMessage(adminMsg, toMboxInfo);
+    auto rc = m_transportSysvMsgQueue->send(adminMsg, toMboxInfo);
     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK));
     delete[] adminMsg;
 }
@@ -660,7 +655,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest1)
      * Test scenario: test failed to msgctl.
      */
     itc_mailbox_id_t mboxId = 0x00100005;
-    itc_mailbox_id_t regionID = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t regionID = mboxId & ITC_MASK_REGION_ID;
     m_transportSysvMsgQueue->m_regionId = regionID;
     char mboxName[30];
 	::sprintf(mboxName, "itc_rx_sysvmq_0x%08x", regionID);
@@ -674,7 +669,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest1)
                 return name == std::string(mboxName);
             }
         )    
-    , 0)).Times(1).WillOnce(Return(mboxId));
+    , ITC_FLAG_DEFAULT)).Times(1).WillOnce(Return(mboxId));
     EXPECT_CALL(*m_cWrapperIfMock, cPthreadSetSpecific(mockedKey, reinterpret_cast<void *>(mboxId))).Times(1).WillOnce(Return(-1));
     
     m_transportSysvMsgQueue->sysvMsgQueueRxThread(nullptr);
@@ -687,7 +682,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest2)
      * Test scenario: test failures on second msg queue setup.
      */
     itc_mailbox_id_t mboxId = 0x00100005;
-    itc_mailbox_id_t regionID = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t regionID = mboxId & ITC_MASK_REGION_ID;
     m_transportSysvMsgQueue->m_regionId = regionID;
     char mboxName[30];
 	::sprintf(mboxName, "itc_rx_sysvmq_0x%08x", regionID);
@@ -702,7 +697,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest2)
                 return name == std::string(mboxName);
             }
         )    
-    , 0)).Times(1).WillOnce(Return(mboxId));
+    , ITC_FLAG_DEFAULT)).Times(1).WillOnce(Return(mboxId));
     EXPECT_CALL(*m_cWrapperIfMock, cPthreadSetSpecific(mockedKey, reinterpret_cast<void *>(mboxId))).Times(1).WillOnce(Return(0));
     
     int32_t projectId = (m_transportSysvMsgQueue->m_regionId >> ITC_REGION_ID_SHIFT);
@@ -738,7 +733,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest3)
      * Test scenario: test negative rxLen received.
      */
     itc_mailbox_id_t mboxId = 0x00100005;
-    itc_mailbox_id_t regionID = mboxId & ITC_REGION_ID_MASK;
+    itc_mailbox_id_t regionID = mboxId & ITC_MASK_REGION_ID;
     m_transportSysvMsgQueue->m_regionId = regionID;
     char mboxName[30];
 	::sprintf(mboxName, "itc_rx_sysvmq_0x%08x", regionID);
@@ -753,7 +748,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest3)
                 return name == std::string(mboxName);
             }
         )    
-    , 0)).Times(1).WillOnce(Return(mboxId));
+    , ITC_FLAG_DEFAULT)).Times(1).WillOnce(Return(mboxId));
     EXPECT_CALL(*m_cWrapperIfMock, cPthreadSetSpecific(mockedKey, reinterpret_cast<void *>(mboxId))).Times(1).WillOnce(Return(0));
     
     int32_t projectId = (m_transportSysvMsgQueue->m_regionId >> ITC_REGION_ID_SHIFT);
@@ -782,7 +777,7 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest3)
     size_t maxMsgSize = 1000;
     m_transportSysvMsgQueue->m_maxMsgSize = maxMsgSize;
     
-    m_transportSysvMsgQueue->m_signal = std::make_shared<Signal>();
+    m_transportSysvMsgQueue->m_syncObj = std::make_shared<SyncObject>();
     
     EXPECT_CALL(*m_cWrapperIfMock, cMsgrcv(msgQueueId, _, maxMsgSize - sizeof(long), 0, 0)).Times(1).WillOnce(Return(-1));
     auto &isTerminated = m_transportSysvMsgQueue->m_isTerminated;
@@ -803,4 +798,4 @@ TEST_F(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest3)
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

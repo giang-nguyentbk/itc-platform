@@ -42,46 +42,47 @@
  */
 #define TPT_TRACE(a, b)
 
-namespace ItcPlatform
+using ItcMessageRawPtr = union ItcMessage *;
+
+namespace ITC
 {
 namespace PROVIDED
 {
 	
-static constexpr uint32_t ITC_NO_MAILBOX_ID 									= 0xFFFFFFFF;
-static constexpr uint32_t ITC_FLAG_NO_FLAG 										= 0b0;
-static constexpr uint32_t ITC_FLAG_EXTERNAL_COMMUNICATION_NEEDED 				= 0b1;
-static constexpr uint32_t ITC_MODE_DEFAULT 										= 0b0;
-static constexpr uint32_t ITC_MODE_MESSAGE_FORWARDING 							= 0b1;
-static constexpr uint32_t ITC_MODE_TIMEOUT_NO_WAIT								= 0b1;
-static constexpr uint32_t ITC_MODE_TIMEOUT_WAIT_FOREVER							= 0b10;
-static constexpr uint32_t ITC_MODE_TIMEOUT_WAIT_FOR_MSEC						= 0b11;
-static constexpr uint32_t ITC_MODE_LOCATE_IN_REGION								= 0b100;
-static constexpr uint32_t ITC_MODE_LOCATE_IN_WORLD								= 0b1000;
-static constexpr uint32_t ITC_MODE_LOCATE_IN_UNIVERSE							= 0b10000;
-static constexpr uint32_t ITC_MODE_LOCATE_IN_ALL								= 0b11100;
-static constexpr uint32_t ITC_MESSAGE_NUMBER_UNDEFINED 							= 0xFFFFFFFF;
-static constexpr uint32_t ITC_SYSTEM_BASE 										= 0x00000000;
-static constexpr uint32_t ITC_SYSTEM_MESSAGE_NUMBER_BASE 						= (ITC_SYSTEM_BASE + 0x10);
-static constexpr uint32_t ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_RESULT	= (ITC_SYSTEM_MESSAGE_NUMBER_BASE + 0x5);
+#define ITC_MAILBOX_ID_DEFAULT 									(uint32_t)(0xFFFFFFFF)
+#define ITC_MESSAGE_MSGNO_DEFAULT 								(uint32_t)(0xFFFFFFFF)
+#define ITC_MESSAGE_MSGNO_SIZE 									(uint32_t)(sizeof(uint32_t))
+#define ITC_FLAG_DEFAULT 										(uint32_t)(0b0)
+#define ITC_FLAG_EXTERNAL_COMMUNICATION_NEEDED 					(uint32_t)(0b1)
+#define ITC_MODE_DEFAULT 										(uint32_t)(0b0)
+#define ITC_MODE_TIMEOUT_NO_WAIT								(uint32_t)(0b1)
+#define ITC_MODE_TIMEOUT_WAIT_FOREVER							(uint32_t)(0b10)
+#define ITC_MODE_TIMEOUT_WAIT_FOR_MSEC							(uint32_t)(0b11)
+#define ITC_MASK_TIMEOUT										(uint32_t)(0x11)
+#define ITC_MODE_LOCATE_IN_REGION								(uint32_t)(0b100)
+#define ITC_MODE_LOCATE_IN_WORLD								(uint32_t)(0b1000)
+#define ITC_MODE_LOCATE_IN_UNIVERSE								(uint32_t)(0b10000)
+#define ITC_MODE_LOCATE_IN_ALL									(uint32_t)(0b11100)
+#define ITC_MASK_LOCATE											(uint32_t)(0x11100)
+#define ITC_SYSTEM_BASE 										(uint32_t)(0x00000000)
+#define ITC_SYSTEM_MESSAGE_NUMBER_BASE 							(uint32_t)(ITC_SYSTEM_BASE + 0x10)
+#define ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_REPLY		(uint32_t)(ITC_SYSTEM_MESSAGE_NUMBER_BASE + 0x5)
 
 using itc_mailbox_id_t = uint32_t;
-/***
- * union ItcMessage
- * {
- * 		uint32_t msgno {0};
- * 		// user fields
- * };
-*/
-using ItcMessageRawPtr = union ItcMessage *;
 
 struct MailboxContactInfo
 {
-	itc_mailbox_id_t worldId {ITC_NO_MAILBOX_ID};
-	itc_mailbox_id_t mailboxId {ITC_NO_MAILBOX_ID};
+	itc_mailbox_id_t mailboxId {ITC_MAILBOX_ID_DEFAULT};
+	uint32_t worldId {0};
+	MailboxContactInfo(itc_mailbox_id_t iMailboxId = ITC_MAILBOX_ID_DEFAULT, uint32_t iWorldId = 0)
+		: mailboxId(iMailboxId),
+		  worldId(iWorldId)
+	{}
+	~MailboxContactInfo() = default;
 };
 
-struct itc_system_message_locate_mbox_in_itc_server_result {
-	uint32_t			msgno {ITC_MESSAGE_NUMBER_UNDEFINED}; // Must be ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_RESULT
+struct itc_system_message_locate_mbox_in_itc_server_reply {
+	uint32_t			msgno {ITC_MESSAGE_MSGNO_DEFAULT}; // Must be ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_REPLY
 	MailboxContactInfo 	locatedMbox;
 };
 
@@ -165,47 +166,41 @@ public:
 	 * is itc-server or not, external usage is reserved.
 	 * + ITC_FLAG_I_AM_ITC_SERVER	0b1
 	 */
-    virtual ItcPlatformIfReturnCode initialise(uint32_t mboxCount, uint32_t flags) = 0;
+    virtual ItcPlatformIfReturnCode initialise(uint32_t flags = ITC_FLAG_DEFAULT) = 0;
 	
 	/***
 	 * Users must ensure the deletion of all user-created mailboxes before calling this ITC system's release.
 	 */
 	virtual ItcPlatformIfReturnCode release() = 0;
 	
-	virtual ItcMessageRawPtr createMessage(size_t size, uint32_t msgno) = 0;
-	virtual ItcPlatformIfReturnCode deleteMessage(ItcMessageRawPtr msg) = 0;
+	virtual ItcMessageRawPtr allocateMessage(uint32_t msgno, size_t size = ITC_MESSAGE_MSGNO_SIZE) = 0;
+	virtual ItcPlatformIfReturnCode deallocateMessage(ItcMessageRawPtr msg) = 0;
 	
 	/***
 	 * Currently "flags" (OR bits) indicate whether:
 	 * 		+ ITC_FLAG_EXTERNAL_COMMUNICATION_NEEDED = 0b1: The created mailbox desires to have external communication to other Worlds or not.
 	 */
-	virtual itc_mailbox_id_t createMailbox(const std::string &name, uint32_t flags) = 0;
+	virtual itc_mailbox_id_t createMailbox(const std::string &name, uint32_t flags = ITC_FLAG_DEFAULT) = 0;
 	virtual ItcPlatformIfReturnCode deleteMailbox(itc_mailbox_id_t mboxId) = 0;
 	
 	/***
 	 * In case of sending messages inside a Region/World only, leave worldId the default initialised value.
 	 * Otherwise you may need to provide worldId in case of outside World communication required.
 	 * To have worldId, you may need to locate mailbox first via either locateMailboxSync or locateMailboxAsync.
-	 * 
-	 * Currently, the argument mode has only one flag bit:
-	 * + mode = 0b0 (ITC_MODE_DEFAULT) : Default mode
-	 * + mode = 0b1 (ITC_MODE_MESSAGE_FORWARDING) : A message will be forwarded directly to the receiver,
-	 * without modifying the sender field in ItcAdminMessage to the forwarder's mailbox id,
-	 * retain the actual sender instead.
 	 */
-	virtual ItcPlatformIfReturnCode sendMessage(ItcMessageRawPtr msg, const MailboxContactInfo &toMbox, uint32_t mode) = 0;
+	virtual ItcPlatformIfReturnCode send(ItcMessageRawPtr msg, const MailboxContactInfo &toMbox) = 0;
 	
 	/***
 	 * There are 3 modes of timeout:
-	 * + ITC_MODE_TIMEOUT_NO_WAIT 			: 0b1 	-> timeout value : is ignored
-	 * + ITC_MODE_TIMEOUT_WAIT_FOREVER 		: 0x10 	-> timeout value : is ignored
-	 * + ITC_MODE_TIMEOUT_WAIT_FOR_MSEC 	: 0x11 	-> timeout value : is in milli-seconds
+	 * + ITC_MODE_TIMEOUT_WAIT_FOREVER (default) 	: 0x1 	-> timeout value : is ignored
+	 * + ITC_MODE_TIMEOUT_NO_WAIT  					: 0b10 	-> timeout value : is ignored
+	 * + ITC_MODE_TIMEOUT_WAIT_FOR_MSEC 			: 0x11 	-> timeout value : is in milli-seconds
 	 */
-	virtual ItcMessageRawPtr receiveMessage(uint32_t timeout, uint32_t mode) = 0;
+	virtual ItcMessageRawPtr receive(uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER, uint32_t timeout = 0) = 0;
 	
 	/***
 	 * To locate mailboxes, you must give itc-server a mode (OR bits)
-	 * mode: (the least significant 2 bits are already taken by ITC_MODE_TIMEOUT_*)
+	 * mode:
 	 * 		+ ITC_MODE_LOCATE_IN_REGION: 		0b00100
 	 * 		+ ITC_MODE_LOCATE_IN_WORLD: 		0b01000
 	 * 		+ ITC_MODE_LOCATE_IN_UNIVERSE: 		0b10000
@@ -223,29 +218,29 @@ public:
 	 * 
 	 * mode = (ITC_MODE_TIMEOUT_* | ITC_MODE_LOCATE_*)
 	 */
-	virtual MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t timeout, uint32_t mode) = 0;
+	virtual MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER | ITC_MODE_LOCATE_IN_ALL, uint32_t timeout = 0) = 0;
 	
 	/***
 	 * Instead of blocking on locating requests and waiting for results synchronously from itc-server side,
-	 * you can just add "struct itc_system_message_locate_mbox_in_itc_server_result" into your own "union ItcMessage {...}",
-	 * implement a proper handler for msgno ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_RESULT and use locateMailboxAsync().
-	 * Once locateMailboxAsync() is called, itc-server will immediately respond and continue locating the requested mailbox itself.
-	 * When the result is available, either timeout, not found or the target mailbox is located,
-	 * itc-server will populate an ItcMessage ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_RESULT with corresponding information,
-	 * and send back to our mailbox, who was just requesting for locating another.
+	 * you can just add "struct itc_system_message_locate_mbox_in_itc_server_reply" into your own "union ItcMessage {...}",
+	 * implement a proper handler for msgno ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_REPLY and use locateMailboxAsync().
+	 * Once locateMailboxAsync() is called, it will send a locating request to itc-server, immediately reply without waiting for reply message and let itc-server continue locating the requested mailbox itself.
 	 * 
-	 * mode = (ITC_MODE_TIMEOUT_* | ITC_MODE_LOCATE_*)
+	 * When the result is available, either timeout, not found or the target mailbox is located,
+	 * itc-server will populate an ItcMessage ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_REPLY
+	 * with corresponding information, and send back to our mailbox, who was just requesting for locating another.
+	 * 
+	 * mode = ITC_MODE_LOCATE_*
 	 */
-	virtual ItcPlatformIfReturnCode locateMailboxAsync(const std::string &mboxName, uint32_t timeout, uint32_t mode) = 0;
+	virtual ItcPlatformIfReturnCode locateMailboxAsync(const std::string &mboxName, uint32_t mode = ITC_MODE_LOCATE_IN_ALL) = 0;
 	
 	/***
 	 * Helper functions
 	 */
-	virtual itc_mailbox_id_t getMyMailboxId() = 0;
-	virtual itc_mailbox_id_t getSenderMailboxId(const ItcMessageRawPtr &msg) = 0;
-	virtual itc_mailbox_id_t getReceiverMailboxId(const ItcMessageRawPtr &msg) = 0;
-	virtual size_t getMessageSize(const ItcMessageRawPtr &msg) = 0;
-	virtual int32_t getMyMailboxFd() = 0;
+	virtual itc_mailbox_id_t getSender(const ItcMessageRawPtr &msg) = 0;
+	virtual itc_mailbox_id_t getReceiver(const ItcMessageRawPtr &msg) = 0;
+	virtual size_t getMsgSize(const ItcMessageRawPtr &msg) = 0;
+	virtual int32_t myMailboxFd() = 0;
 	virtual std::string getMailboxName(itc_mailbox_id_t mboxId) = 0;
 
 protected:
@@ -258,4 +253,4 @@ namespace REQUIRED
 {
 	
 } // namespace REQUIRED
-} // namespace ItcPlatform
+} // namespace ITC

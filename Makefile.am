@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4 --install
 
-if ENABLE_UNITTEST_YES
+if BUILD_TYPE_UNITTEST
 include unittest/Makefile.am
 else
 include sw/Makefile.am

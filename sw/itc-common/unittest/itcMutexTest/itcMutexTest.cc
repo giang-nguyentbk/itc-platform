@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -43,4 +43,4 @@ TEST_F(ItcMutexTest, getTimeDiffInNanoSecTest1)
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

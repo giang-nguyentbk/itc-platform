@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <mutex>
 
 #include <errno.h>
 #include <unistd.h>
@@ -17,16 +16,15 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
+#include "itcConstant.h"
+
 // #include <traceIf.h>
 // #include "itc-common/inc/itcTptProvider.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
-
-std::shared_ptr<CWrapper> CWrapper::m_instance = nullptr;
-std::mutex CWrapper::m_singletonMutex;
 
 /***
  * Just for compilation in unit testing.
@@ -39,21 +37,10 @@ std::mutex CWrapper::m_singletonMutex;
  * of getInstance().
 */
 #ifndef UNITTEST
-std::weak_ptr<CWrapperIf> CWrapperIf::getInstance()
-{
-	return CWrapper::getInstance();
-}
+SINGLETON_IF_DEFINITION(CWrapperIf, CWrapper)
 #endif
 
-std::weak_ptr<CWrapper> CWrapper::getInstance()
-{
-    std::scoped_lock<std::mutex> lock(m_singletonMutex);
-    if (m_instance == nullptr)
-    {
-        m_instance.reset(new CWrapper);
-    }
-    return m_instance;
-}
+SINGLETON_DEFINITION(CWrapper)
 
 /***
  * Network APIs
@@ -96,6 +83,10 @@ int32_t CWrapper::cPthreadMutexAttrInit(pthread_mutexattr_t *attr)
     return ::pthread_mutexattr_init(attr);
 }
 
+int32_t CWrapper::cPthreadMutexAttrSetType(pthread_mutexattr_t *attr, int32_t type)
+{
+    return ::pthread_mutexattr_settype(attr, type);
+}
 int32_t CWrapper::cPthreadCondAttrSetClock(pthread_condattr_t *attr, clockid_t clock_id)
 {
     return ::pthread_condattr_setclock(attr, clock_id);
@@ -204,6 +195,11 @@ int32_t CWrapper::cPthreadAttrDestroy(pthread_attr_t *attr)
 int32_t CWrapper::cPthreadSetSpecific(pthread_key_t key, const void *value)
 {
     return ::pthread_setspecific(key, value);
+}
+
+int32_t CWrapper::cPthreadSetCancelState(int32_t state, int32_t *oldstate)
+{
+    return ::pthread_setcancelstate(state, oldstate);
 }
 
 pid_t CWrapper::cGetPid()
@@ -323,6 +319,11 @@ char *CWrapper::cStrcpy(char *dst, const char *src)
     return ::strcpy(dst, src);
 }
 
+size_t CWrapper::cStrlen(const char *s)
+{
+    return ::strlen(s);
+}
+
 
 /***
  * SYSV Message Queue APIs
@@ -353,4 +354,4 @@ int32_t CWrapper::cMsgsnd(int32_t msqid, const void *msgp, size_t msgsz, int32_t
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

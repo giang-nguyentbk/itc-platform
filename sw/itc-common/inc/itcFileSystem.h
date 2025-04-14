@@ -3,8 +3,9 @@
 #include <mutex>
 
 #include "itcFileSystemIf.h"
+#include "itcConstant.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -26,7 +27,7 @@ public:
 	FileSystem& operator=(const FileSystem&)    = delete;
 	FileSystem& operator=(FileSystem&&)         = delete;
 
-    FileSystemIfReturnCode createPath(const std::filesystem::path &path, std::filesystem::perms mode, size_t pos, PathType type) override;
+    FileSystemIfReturnCode createPath(const std::filesystem::path &path, PathType type, size_t pos = 0, std::filesystem::perms mode = std::filesystem::perms::all) override;
     FileSystemIfReturnCode removePath(const std::filesystem::path &path) override;
     bool exists(const std::filesystem::path &path) override;
     bool isAccessible(const std::filesystem::path &path) override;
@@ -35,12 +36,11 @@ private:
     FileSystem() = default;
 
 private:
-    static std::shared_ptr<FileSystem> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(FileSystem)
     
     friend class FileSystemIfTest;
 
 }; // class FileSystem
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

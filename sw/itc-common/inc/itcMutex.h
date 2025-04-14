@@ -8,7 +8,7 @@
 // #include <traceIf.h>
 // #include "itc-common/inc/itcTptProvider.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -37,6 +37,7 @@ unsigned long int getTimeDiffInNanoSec(struct timespec tStart, struct timespec t
 		unsigned long int difftime = getTimeDiffInNanoSec(tStart, tEnd);					\
 		if(difftime/1000000 > 5) UNLIKELY 							           				\
 		{										                                			\
+			std::cout << "ETRUGIA: MUTEX_LOCK\t" << std::hex << reinterpret_cast<unsigned long>(mtx) << ",\t" << __FILE__ << ":" << __LINE__ << ",\ttime_elapsed = " << difftime/1000 << " (us)!\n"; \
 			TPT_TRACE(TRACE_DEBUG, SSTR("MUTEX_LOCK\t", std::hex,               			\
                 (unsigned long)mtx, ",\t", __FILE__, ":", __LINE__,            				\
                 ",\ttime_elapsed = ", difftime/1000000, " (ms)!"));	            			\
@@ -62,6 +63,7 @@ unsigned long int getTimeDiffInNanoSec(struct timespec tStart, struct timespec t
 		unsigned long int difftime = getTimeDiffInNanoSec(tStart, tEnd);					\
 		if(difftime/1000000 > 5) UNLIKELY							          				\
 		{										                                			\
+			std::cout << "ETRUGIA: MUTEX_UNLOCK\t" << std::hex << reinterpret_cast<unsigned long>(mtx) << ",\t" << __FILE__ << ":" << __LINE__ << ",\ttime_elapsed = " << difftime/1000 << " (us)!\n"; \
 			TPT_TRACE(TRACE_DEBUG, SSTR("MUTEX_UNLOCK\t", std::hex,             			\
                 (unsigned long)mtx, ",\t", __FILE__, ":", __LINE__,            				\
                 ",\ttime_elapsed = ", difftime/1000000, " (ms)!"));	            			\
@@ -79,6 +81,7 @@ unsigned long int getTimeDiffInNanoSec(struct timespec tStart, struct timespec t
 #define MUTEX_LOCK(mtx)								                        				\
 	do										                                    			\
 	{										                                    			\
+		std::cout << "ETRUGIA: MUTEX_LOCK\t" << std::hex << reinterpret_cast<unsigned long>(mtx) << ",\t" << __FILE__ << ":" << __LINE__ << "\n"; \
 		TPT_TRACE(TRACE_DEBUG, SSTR("MUTEX_LOCK\t", std::hex,                   			\
             (unsigned long)mtx, ",\t", __FILE__, ":", __LINE__));			    			\
 		CWrapperIf::getInstance().lock()->cPthreadMutexLock(mtx);							\
@@ -87,6 +90,7 @@ unsigned long int getTimeDiffInNanoSec(struct timespec tStart, struct timespec t
 #define MUTEX_UNLOCK(mtx)								                        			\
 	do										                                    			\
 	{										                                    			\
+		std::cout << "ETRUGIA: MUTEX_UNLOCK\t" << std::hex << reinterpret_cast<unsigned long>(mtx) << ",\t" << __FILE__ << ":" << __LINE__ << "\n"; \
 		TPT_TRACE(TRACE_DEBUG, SSTR("MUTEX_UNLOCK\t", std::hex,                 			\
             (unsigned long)mtx, ",\t", __FILE__, ":", __LINE__));			    			\
 		CWrapperIf::getInstance().lock()->cPthreadMutexUnlock(mtx);							\
@@ -106,4 +110,4 @@ unsigned long int getTimeDiffInNanoSec(struct timespec tStart, struct timespec t
 #endif
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

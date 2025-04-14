@@ -23,15 +23,14 @@
 #include "itcConstant.h"
 #include "itcMailbox.h"
 #include "itcAdminMessage.h"
-#include "itcThreadManager.h"
-#include "itcTransportIf.h"
+#include "itcThreadManagerIf.h"
 #include "itcMutex.h"
 #include "itcCWrapperIf.h"
 
 void destructRxThreadWrapper(void *args);
 void *sysvMsgQueueRxThreadWrapper(void *args);
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -40,22 +39,21 @@ namespace ItcPlatform
 namespace INTERNAL
 {
 
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 
-static constexpr uint32_t ITC_MAX_SUPPORTED_REGIONS             = 255;
-static constexpr uint32_t ITC_SYSV_MESSAGE_QUEUE_TX_MSGNO       = 0x1;
-static const std::string ITC_PATH_SYSVMQ_FILE_NAME          {"/tmp/itc/sysvmsq/sysvmq-file"};
+#define ITC_SYSV_MESSAGE_QUEUE_TX_MSGNO         (uint32_t)(0x1)
+#define ITC_PATH_SYSVMQ_FILE_NAME               "/tmp/itc/sysvmsq/sysvmq-file"
 
 struct SysvMsgQueueContactInfo
 {
-	itc_mailbox_id_t    regionId {ITC_NO_MAILBOX_ID};
+	itc_mailbox_id_t    regionId {ITC_MAILBOX_ID_DEFAULT};
 	int32_t		        msgQueueId {-1};
 };
 
 /***
  * This transport is to exchange messages between Regions/Processes.
  */
-class ItcTransportSysvMsgQueue : public ItcTransportIf
+class ItcTransportSysvMsgQueue
 {
 public:
     static std::weak_ptr<ItcTransportSysvMsgQueue> getInstance();
@@ -66,46 +64,40 @@ public:
     ItcTransportSysvMsgQueue(ItcTransportSysvMsgQueue &&other) noexcept = delete;
     ItcTransportSysvMsgQueue &operator=(ItcTransportSysvMsgQueue &&other) noexcept = delete;
     
-    ItcTransportIfReturnCode initialise(itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID, uint32_t mboxCount = 0, uint32_t flags = ITC_NO_MAILBOX_ID) override;
-    ItcTransportIfReturnCode release() override;
-    ItcTransportIfReturnCode locateItcServer(itc_mailbox_id_t *assignedRegionId, itc_mailbox_id_t *locatedItcServerMboxId) override;
-    ItcTransportIfReturnCode createMailbox(ItcMailboxRawPtr newMbox) override;
-    ItcTransportIfReturnCode deleteMailbox(ItcMailboxRawPtr mbox) override;
-    ItcTransportIfReturnCode sendMessage(ItcAdminMessageRawPtr adminMsg, const MailboxContactInfo &toMbox) override;
-    ItcAdminMessageRawPtr receiveMessage(ItcMailboxRawPtr myMbox) override;
-    size_t getMaxMessageSize() override;
+    bool initialise(itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT);
+    void release();
+    ItcPlatformIfReturnCode send(ItcAdminMessageRawPtr adminMsg);
     
 private:
     ItcTransportSysvMsgQueue() = default;
     
-    ItcTransportIfReturnCode releaseAllResources();
+    size_t getMaxMessageSize();
     int32_t getMsgQueueId(itc_mailbox_id_t mboxId);
     void removeContactInfoAtIndex(size_t atIndex);
     void addContactInfoAtIndex(size_t atIndex, itc_mailbox_id_t mboxId);
-    int32_t parseAndForwardMessage(uint8_t *rxBuffer, ssize_t length);
+    bool parseAndForwardMessage(uint8_t *rxBuffer, ssize_t length);
     void destructRxThread(void *args);
     void *sysvMsgQueueRxThread(void *args);
     
 private:
-    static std::shared_ptr<ItcTransportSysvMsgQueue> m_instance;
-	static std::mutex m_singletonMutex;
-    itc_mailbox_id_t m_regionId {ITC_NO_MAILBOX_ID};
-    itc_mailbox_id_t m_mboxId {ITC_NO_MAILBOX_ID};
+    SINGLETON_DECLARATION(ItcTransportSysvMsgQueue)
+    
+    itc_mailbox_id_t m_regionId {ITC_MAILBOX_ID_DEFAULT};
+    itc_mailbox_id_t m_mboxId {ITC_MAILBOX_ID_DEFAULT};
     int32_t m_msgQueueId {-1};
     pid_t m_pid {-1};
-    std::shared_ptr<Signal> m_signal;
+    std::shared_ptr<SyncObject> m_syncObj;
 	pthread_key_t m_destructKey;
     bool m_isInitialised {false};
-    bool m_isTerminated {false};
+    bool m_isRxThreadTerminated {false};
     size_t m_maxMsgSize {std::numeric_limits<size_t>::max()};
     uint8_t *m_rxBuffer {nullptr};
     std::array<SysvMsgQueueContactInfo, ITC_MAX_SUPPORTED_REGIONS> m_contactList;
     
     friend void ::destructRxThreadWrapper(void *args);
     friend void *::sysvMsgQueueRxThreadWrapper(void *args);
+    
     friend class ItcTransportSysvMsgQueueTest;
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, releaseAllResourcesTest1);
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, releaseAllResourcesTest2);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest1);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest2);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, getMsgQueueIdTest3);
@@ -123,10 +115,10 @@ private:
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, initialiseTest4);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, releaseTest1);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, releaseTest2);
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendMessageTest1);
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendMessageTest2);
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendMessageTest3);
-	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendMessageTest4);
+	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendTest1);
+	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendTest2);
+	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendTest3);
+	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sendTest4);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, destructRxThreadTest1);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest1);
 	FRIEND_TEST(ItcTransportSysvMsgQueueTest, sysvMsgQueueRxThreadTest2);
@@ -134,4 +126,4 @@ private:
 }; // class ItcTransportSysvMsgQueue
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

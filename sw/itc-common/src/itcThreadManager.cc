@@ -7,9 +7,7 @@
 #include "itcMutex.h"
 #include "itcCWrapperIf.h"
 
-#include <mutex>
-
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -18,11 +16,8 @@ namespace ItcPlatform
 namespace INTERNAL
 {
 // using namespace CommonUtils::V1::EnumUtils;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using ThreadManagerIfReturnCode = ThreadManager::ThreadManagerIfReturnCode;
-
-std::shared_ptr<ThreadManager> ThreadManager::m_instance = nullptr;
-std::mutex ThreadManager::m_singletonMutex;
 
 /***
  * Just for compilation in unit testing.
@@ -35,21 +30,10 @@ std::mutex ThreadManager::m_singletonMutex;
  * of getInstance().
 */
 #ifndef UNITTEST
-std::weak_ptr<ThreadManagerIf> ThreadManagerIf::getInstance()
-{
-	return ThreadManager::getInstance();
-}
+SINGLETON_IF_DEFINITION(ThreadManagerIf, ThreadManager)
 #endif
 
-std::weak_ptr<ThreadManager> ThreadManager::getInstance()
-{
-    std::scoped_lock<std::mutex> lock(m_singletonMutex);
-    if (m_instance == nullptr)
-    {
-        m_instance.reset(new ThreadManager);
-    }
-    return m_instance;
-}
+SINGLETON_DEFINITION(ThreadManager)
 
 void ThreadManager::reset()
 {
@@ -87,10 +71,10 @@ ThreadManagerIfReturnCode ThreadManager::setThreadAttributes(int32_t policy, int
 	return MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK);
 }
 
-ThreadManagerIfReturnCode ThreadManager::addThread(const Task &task, bool useHighestPriority, std::shared_ptr<Signal> &signal)
+ThreadManagerIfReturnCode ThreadManager::addThread(const Task &task, std::shared_ptr<SyncObject> syncObj, bool useHighestPriority)
 {
 	MUTEX_LOCK(&m_threadListMutex);
-	m_threadList.emplace_back(task, useHighestPriority, signal);
+	m_threadList.emplace_back(task, syncObj, useHighestPriority);
 	MUTEX_UNLOCK(&m_threadListMutex);
 	return MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK);
 }
@@ -103,15 +87,15 @@ ThreadManagerIfReturnCode ThreadManager::startAllThreads()
 	{
 		if(thr.isRunning) UNLIKELY continue;
 		
-		auto signal = thr.signal.lock();
-		if(!signal) UNLIKELY
+		auto syncObj = thr.syncObj.lock();
+		if(!syncObj) UNLIKELY
 		{
 			TPT_TRACE(TRACE_ERROR, SSTR("The owner of the thread tid = ", thr.tid, " is going to release resources!"));
 			rc = MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_SYSCALL_ERROR);
 			break;
 		}
 		
-		MUTEX_LOCK(&signal->mtx);
+		MUTEX_LOCK(&syncObj->elems->mtx);
 		rc = configureAndStartThread(thr.task.taskFunc, thr.task.taskArgs, &thr.tid, m_policy,
 					(thr.useHighestPriority ? m_selfLimitPrio : m_priority));
 		if(rc != MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_OK)) UNLIKELY
@@ -120,13 +104,13 @@ ThreadManagerIfReturnCode ThreadManager::startAllThreads()
 			break;
 		}
 		
-		signal->calculateExpiredDate();
-		int32_t ret = CWrapperIf::getInstance().lock()->cPthreadCondTimedWait(&signal->cond, &signal->mtx, &signal->timeout);
-		MUTEX_UNLOCK(&signal->mtx);
+		syncObj->calculateExpiredDate();
+		int32_t ret = CWrapperIf::getInstance().lock()->cPthreadCondTimedWait(&syncObj->elems->cond, &syncObj->elems->mtx, &syncObj->timeout);
+		MUTEX_UNLOCK(&syncObj->elems->mtx);
 		if(ret != 0) UNLIKELY
 		{
 			TPT_TRACE(TRACE_INFO, SSTR("Failed to start thread tid = ", thr.tid, ", waitTime = ", \
-				signal->relativeTimeout, " (ms), ret = ", ret));
+				syncObj->relativeTimeout, " (ms), ret = ", ret));
 			rc = MAKE_RETURN_CODE(ThreadManagerIfReturnCode, THREAD_MANAGER_INITIALISATION_TIMEOUT);
 			break;
 		}
@@ -227,4 +211,4 @@ ThreadManagerIfReturnCode ThreadManager::configureAndStartThread(void *(*taskFun
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

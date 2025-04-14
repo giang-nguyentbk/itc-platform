@@ -1,8 +1,7 @@
 #include "itcPlatformIfMock.h"
+#include "itcConstant.h"
 
-#include <mutex>
-
-namespace ItcPlatform
+namespace ITC
 {
 namespace PROVIDED
 {
@@ -14,19 +13,8 @@ std::weak_ptr<ItcPlatformIf> ItcPlatformIf::getInstance()
 
 namespace INTERNAL
 {
-std::shared_ptr<ItcPlatformIfMock> ItcPlatformIfMock::m_instance = nullptr;
-std::mutex ItcPlatformIfMock::m_singletonMutex;
-
-std::weak_ptr<ItcPlatformIfMock> ItcPlatformIfMock::getInstance()
-{
-    std::scoped_lock<std::mutex> lock(m_singletonMutex);
-    if (m_instance == nullptr)
-    {
-        m_instance.reset(new ItcPlatformIfMock);
-    }
-    return m_instance;
-}
+SINGLETON_DEFINITION(ItcPlatformIfMock)
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC
 

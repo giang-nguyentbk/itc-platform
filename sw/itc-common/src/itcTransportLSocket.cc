@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <mutex>
 
 #include <errno.h>
 #include <unistd.h>
@@ -17,13 +16,12 @@
 #include "itcConstant.h"
 #include "itcMailbox.h"
 #include "itcAdminMessage.h"
-#include "itcThreadManager.h"
 #include "itcEthernetProto.h"
 #include "itcFileSystemIf.h"
 #include "itcCWrapperIf.h"
 
 
-namespace ItcPlatform
+namespace ITC
 {
 /***
  * Please do not use anything in this namespace outside itc-platform project,
@@ -31,64 +29,51 @@ namespace ItcPlatform
  */
 namespace INTERNAL
 {
-
-using ItcTransportIfReturnCode = ItcTransportIf::ItcTransportIfReturnCode;
 using FileSystemIfReturnCode = FileSystemIf::FileSystemIfReturnCode;
 using PathType = FileSystemIf::PathType;
 
-std::shared_ptr<ItcTransportLSocket> ItcTransportLSocket::m_instance = nullptr;
-std::mutex ItcTransportLSocket::m_singletonMutex;
+SINGLETON_DEFINITION(ItcTransportLSocket)
 
-std::weak_ptr<ItcTransportLSocket> ItcTransportLSocket::getInstance()
+bool ItcTransportLSocket::initialise(itc_mailbox_id_t regionId)
 {
-    std::scoped_lock<std::mutex> lock(m_singletonMutex);
-    if (m_instance == nullptr)
-    {
-        m_instance.reset(new ItcTransportLSocket);
-    }
-    return m_instance;
-}
-
-ItcTransportIfReturnCode ItcTransportLSocket::initialise(itc_mailbox_id_t regionId, uint32_t mboxCount, uint32_t flags)
-{
-    if(m_isItcServerRunning) LIKELY
+    if(m_isItcServerRunning)
     {
         auto cWrapperIf = CWrapperIf::getInstance().lock();
         if(!cWrapperIf)
         {
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+            return false;
         }
         if(!m_isLSockPathCreated)
         {
-            auto rc = FileSystemIf::getInstance().lock()->createPath(ITC_PATH_SOCK_FOLDER_NAME, std::filesystem::perms::all, 2, PathType::DIRECTORY);
+            auto rc = FileSystemIf::getInstance().lock()->createPath(ITC_PATH_SOCK_FOLDER_NAME, PathType::DIRECTORY, ITC_PATH_ITC_DIRECTORY_POSITION);
             if(rc != MAKE_RETURN_CODE(FileSystemIfReturnCode, ITC_FILESYSTEM_OK))
             {
-                return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+                return false;
             }
             m_isLSockPathCreated = true;
         }
         
         auto sockFd = cWrapperIf->cSocket(AF_LOCAL, SOCK_STREAM, 0);
-        if(sockFd < 0) UNLIKELY
+        if(sockFd < 0)
         {
             TPT_TRACE(TRACE_ERROR, SSTR("Failed to open LSocket!"));
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+            return false;
         }
         
         sockaddr_un itcServerAddr;
         cWrapperIf->cMemset(&itcServerAddr, 0, sizeof(sockaddr_un));
         itcServerAddr.sun_family = AF_LOCAL;
-        ::sprintf(itcServerAddr.sun_path, "%s_0x%08x", ITC_PATH_LSOCK_BASE_FILE_NAME.c_str(), regionId);
+        ::sprintf(itcServerAddr.sun_path, "%s_0x%08x", ITC_PATH_LSOCK_BASE_FILE_NAME, regionId);
         
         /***
          * When using connect() remember always use sizeof(coord_addr) here. If you use sizeof(sockaddr) instead,
          * there will be a bug that "No such file or directory" even though it's existing, Idk why :)
          */
         int32_t res = cWrapperIf->cConnect(sockFd, (const sockaddr*)&itcServerAddr, sizeof(itcServerAddr));
-        if(res < 0) UNLIKELY
+        if(res < 0)
         {
             TPT_TRACE(TRACE_ERROR, SSTR("Failed to connect to address ", itcServerAddr.sun_path, ", res = ", res, ", errno = ", errno));
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+            return false;
         }
         
         char ack[4] = {0}; /* Only enough space for string "ack\0" */
@@ -102,71 +87,70 @@ ItcTransportIfReturnCode ItcTransportLSocket::initialise(itc_mailbox_id_t region
             rxLen = cWrapperIf->cRecv(sockFd, ack, 4, 0);
         } while (rxLen < 0 && errno == EINTR);
         
-        if(rxLen < 0) UNLIKELY
+        if(rxLen < 0)
         {
             TPT_TRACE(TRACE_ABN, SSTR("ACK from itc-server is not received, rxLen = ", rxLen));
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
-        } else if(rxLen != 4 || cWrapperIf->cStrcmp("ack", ack) != 0) UNLIKELY
+            return false;
+        } else if(rxLen != 4 || cWrapperIf->cStrcmp("ack", ack) != 0)
         {
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_UNEXPECTED_RESPONSE);
+            return false;
         }
         
         m_sockFd = sockFd;
-        return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK);
+        return true;
     }
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_ITC_SERVER_NOT_RUNNING);
+    return false;
 }
 
-ItcTransportIfReturnCode ItcTransportLSocket::release()
+void ItcTransportLSocket::release()
 {    
     if(m_isItcServerRunning)
     {
         auto ret = CWrapperIf::getInstance().lock()->cClose(m_sockFd);
-        if(ret < 0) UNLIKELY
+        if(ret < 0)
         {
             TPT_TRACE(TRACE_ERROR, SSTR("Failed to close LSocket!"));
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+            return;
         }
+        m_sockFd = -1;
         
         auto rc = FileSystemIf::getInstance().lock()->removePath(ITC_PATH_SOCK_FOLDER_NAME);
         if(rc != MAKE_RETURN_CODE(FileSystemIfReturnCode, ITC_FILESYSTEM_OK))
         {
             TPT_TRACE(TRACE_ERROR, SSTR("Failed to remove socket path ", ITC_PATH_SOCK_FOLDER_NAME, "!"));
-            return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+            return;
         }
-        
-        m_sockFd = -1;
-        m_isItcServerRunning = false;
         m_isLSockPathCreated = false;
+        m_isItcServerRunning = false;
     }
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK);
 }
 
-ItcTransportIfReturnCode ItcTransportLSocket::locateItcServer(itc_mailbox_id_t *assignedRegionId, itc_mailbox_id_t *locatedItcServerMboxId)
+LocatedResults ItcTransportLSocket::locateItcServer()
 {
+    LocatedResults locatedResults;
     auto cWrapperIf = CWrapperIf::getInstance().lock();
     if(!cWrapperIf)
     {
-        return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+        return locatedResults;
     }
     
     int32_t sockFd = cWrapperIf->cSocket(AF_LOCAL, SOCK_STREAM, 0);
-	if(sockFd < 0) UNLIKELY
+	if(sockFd < 0)
 	{
 		TPT_TRACE(TRACE_ERROR, "Failed to call socket()!");
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+		return locatedResults;
 	}
     
     struct sockaddr_un itcServerAddr;
     cWrapperIf->cMemset(&itcServerAddr, 0, sizeof(struct sockaddr_un));
     itcServerAddr.sun_family = AF_LOCAL;
-	cWrapperIf->cStrcpy(itcServerAddr.sun_path, ITC_PATH_ITC_SERVER_FILE_NAME.c_str());
+	cWrapperIf->cStrcpy(itcServerAddr.sun_path, ITC_PATH_ITC_SERVER_SOCKET);
     
     int32_t ret = cWrapperIf->cConnect(sockFd, (struct sockaddr*)&itcServerAddr, sizeof(itcServerAddr));
-	if(ret < 0) UNLIKELY
+	if(ret < 0)
 	{
 		TPT_TRACE(TRACE_ERROR, SSTR("Failed to connect(), errno = ", errno));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+		return locatedResults;
 	}
 
     itc_ethernet_message_locate_itc_server_request lrequest;
@@ -174,111 +158,37 @@ ItcTransportIfReturnCode ItcTransportLSocket::locateItcServer(itc_mailbox_id_t *
 	lrequest.pid    = cWrapperIf->cGetPid();
     
     ret = cWrapperIf->cSend(sockFd, &lrequest, sizeof(itc_ethernet_message_locate_itc_server_request), 0);
-    if(ret < 0) UNLIKELY
+    if(ret < 0)
 	{
 		TPT_TRACE(TRACE_ERROR, SSTR("Failed to send ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REQUEST!"));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
+		return locatedResults;
 	}
     
     uint8_t rxBuffer[ITC_MAX_SOCKET_RX_BUFFER_SIZE];
     auto lreply = reinterpret_cast<itc_ethernet_message_locate_itc_server_reply *>(rxBuffer);
     auto receivedBytes = cWrapperIf->cRecv(sockFd, lreply, ITC_MAX_SOCKET_RX_BUFFER_SIZE, 0);
-	if(receivedBytes < (ssize_t)sizeof(itc_ethernet_message_locate_itc_server_reply)) UNLIKELY
+	if(receivedBytes < (ssize_t)sizeof(itc_ethernet_message_locate_itc_server_reply))
 	{
 		TPT_TRACE(TRACE_ABN, SSTR("Invalid ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REQUEST received, receivedBytes = ", receivedBytes));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_RESPONSE);
+		return locatedResults;
 	}
     
     cWrapperIf->cClose(sockFd);
     
     /* Done communication, start analyzing the response */
-	if(lreply->msgno == ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REPLY && lreply->assignedRegionId != ITC_NO_MAILBOX_ID) LIKELY
+	if(lreply->msgno == ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REPLY && lreply->assignedRegionId != ITC_MAILBOX_ID_DEFAULT)
 	{
-        if(assignedRegionId) LIKELY
-        {
-            *assignedRegionId = lreply->assignedRegionId;
-        }
-        if(locatedItcServerMboxId) LIKELY
-        {
-            *locatedItcServerMboxId = lreply->itcServerMboxId;
-        }
+        locatedResults.assignedRegionId = lreply->assignedRegionId;
+        locatedResults.itcServerMboxId = lreply->itcServerMboxId;
         m_isItcServerRunning = true;
-	} else UNLIKELY
+	} else
 	{
 		/* Indicate that we have received a strange message type in response */
 		TPT_TRACE(TRACE_ABN, SSTR("Unexpected ITC_ETHERNET_MESSAGE_LOCATE_ITC_SERVER_REPLY information received!"));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_INVALID_RESPONSE);
 	}
     
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK);
-}
-
-ItcTransportIfReturnCode ItcTransportLSocket::createMailbox(ItcMailboxRawPtr newMbox)
-{
-    /***
-     * NOT USED
-     */
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_UNDEFINED);
-}
-
-ItcTransportIfReturnCode ItcTransportLSocket::deleteMailbox(ItcMailboxRawPtr mbox)
-{
-    /***
-     * NOT USED
-     */
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_UNDEFINED);
-}
-
-ItcTransportIfReturnCode ItcTransportLSocket::sendMessage(ItcAdminMessageRawPtr adminMsg, const MailboxContactInfo &toMbox)
-{
-    /***
-     * NOT USED
-     */
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_UNDEFINED);
-}
-
-ItcAdminMessageRawPtr ItcTransportLSocket::receiveMessage(ItcMailboxRawPtr myMbox)
-{
-    /***
-     * NOT USED
-     */
-    return nullptr;
-}
-
-size_t ItcTransportLSocket::getMaxMessageSize()
-{
-    /***
-     * NOT USED
-     */
-    return 0;
-}
-
-/***
- * @DEPRECATED
- */
-DEPRECATED("Please use new alternative functions in FileSystemIf instead!")
-ItcTransportIfReturnCode ItcTransportLSocket::createLSockPath()
-{
-    auto ret = CWrapperIf::getInstance().lock()->cMkdir(ITC_PATH_SOCK_FOLDER_NAME.c_str(), 0777);
-    if(ret < 0 && errno != EEXIST) UNLIKELY
-	{
-		TPT_TRACE(TRACE_ERROR, SSTR("Failed to mkdir() ", ITC_PATH_SOCK_FOLDER_NAME));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
-	} else if(ret < 0 && errno == EEXIST)
-	{
-		TPT_TRACE(TRACE_INFO, SSTR("LSock Path ", ITC_PATH_SOCK_FOLDER_NAME, " already exists!"));
-	}
-    
-    ret = CWrapperIf::getInstance().lock()->cChmod(ITC_PATH_SOCK_FOLDER_NAME.c_str(), 0777);
-	if(ret < 0) UNLIKELY
-	{
-		TPT_TRACE(TRACE_ERROR, SSTR("Failed to chmod ", ITC_PATH_SOCK_FOLDER_NAME, ", errno = ", errno));
-		return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_SYSCALL_ERROR);
-	}
-    
-    m_isLSockPathCreated = true;
-    return MAKE_RETURN_CODE(ItcTransportIfReturnCode, ITC_TRANSPORT_OK);
+    return locatedResults;
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

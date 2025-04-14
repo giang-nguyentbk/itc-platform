@@ -10,7 +10,7 @@
 #include "itcCWrapperIfMock.h"
 #include "itcEthernetProto.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -18,7 +18,7 @@ namespace INTERNAL
 using ::testing::AtLeast;
 using ::testing::Pointee;
 using namespace testing;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using ItcTransportIfReturnCode = ItcTransportIf::ItcTransportIfReturnCode;
 
 class ItcTransportLSocketTest : public testing::Test
@@ -95,7 +95,7 @@ TEST_F(ItcTransportLSocketTest, initialiseTest4)
      */
     m_transportLSocket->m_isItcServerRunning = true;
     m_transportLSocket->m_isLSockPathCreated = false;
-    itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     std::stringstream itcServerAddr;
     itcServerAddr << ITC_PATH_LSOCK_BASE_FILE_NAME << "_0x" << std::setw(8) << std::setfill('0') << std::hex << regionId;
@@ -121,7 +121,7 @@ TEST_F(ItcTransportLSocketTest, initialiseTest5)
      */
     m_transportLSocket->m_isItcServerRunning = true;
     m_transportLSocket->m_isLSockPathCreated = false;
-    itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     std::stringstream itcServerAddr;
     itcServerAddr << ITC_PATH_LSOCK_BASE_FILE_NAME << "_0x" << std::setw(8) << std::setfill('0') << std::hex << regionId;
@@ -148,7 +148,7 @@ TEST_F(ItcTransportLSocketTest, initialiseTest6)
      */
     m_transportLSocket->m_isItcServerRunning = true;
     m_transportLSocket->m_isLSockPathCreated = false;
-    itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     std::stringstream itcServerAddr;
     itcServerAddr << ITC_PATH_LSOCK_BASE_FILE_NAME << "_0x" << std::setw(8) << std::setfill('0') << std::hex << regionId;
@@ -175,7 +175,7 @@ TEST_F(ItcTransportLSocketTest, initialiseTest7)
      */
     m_transportLSocket->m_isItcServerRunning = true;
     m_transportLSocket->m_isLSockPathCreated = false;
-    itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     std::stringstream itcServerAddr;
     itcServerAddr << ITC_PATH_LSOCK_BASE_FILE_NAME << "_0x" << std::setw(8) << std::setfill('0') << std::hex << regionId;
@@ -214,7 +214,7 @@ TEST_F(ItcTransportLSocketTest, initialiseTest8)
      */
     m_transportLSocket->m_isItcServerRunning = true;
     m_transportLSocket->m_isLSockPathCreated = false;
-    itc_mailbox_id_t regionId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t regionId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     std::stringstream itcServerAddr;
     itcServerAddr << ITC_PATH_LSOCK_BASE_FILE_NAME << "_0x" << std::setw(8) << std::setfill('0') << std::hex << regionId;
@@ -323,8 +323,8 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest1)
     /***
      * Test scenario: test failed to cSocket().
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(-1));
     
@@ -337,10 +337,10 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest2)
     /***
      * Test scenario: test failed to cConnect().
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
-    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_FILE_NAME;
+    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_SOCKET;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(mockedSockFd));
     EXPECT_CALL(*m_cWrapperIfMock, cConnect(mockedSockFd,
@@ -359,10 +359,10 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest3)
     /***
      * Test scenario: test failed to cSend().
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
-    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_FILE_NAME;
+    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_SOCKET;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(mockedSockFd));
     EXPECT_CALL(*m_cWrapperIfMock, cConnect(mockedSockFd,
@@ -382,10 +382,10 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest4)
     /***
      * Test scenario: test receivedBytes < 0.
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
-    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_FILE_NAME;
+    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_SOCKET;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(mockedSockFd));
     EXPECT_CALL(*m_cWrapperIfMock, cConnect(mockedSockFd,
@@ -406,12 +406,12 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest5)
     /***
      * Test scenario: test happy case.
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
     itc_mailbox_id_t mockedRegionId = 0x00300000;
     itc_mailbox_id_t mockedItcServerMboxId = 0x00100001;
-    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_FILE_NAME;
+    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_SOCKET;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(mockedSockFd));
     EXPECT_CALL(*m_cWrapperIfMock, cConnect(mockedSockFd,
@@ -443,10 +443,10 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest6)
     /***
      * Test scenario: test malformed lsocket reply from itc-server.
      */
-    itc_mailbox_id_t assignedRegionId = ITC_NO_MAILBOX_ID;
-    itc_mailbox_id_t locatedItcServerMboxId = ITC_NO_MAILBOX_ID;
+    itc_mailbox_id_t assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
+    itc_mailbox_id_t locatedItcServerMboxId = ITC_MAILBOX_ID_DEFAULT;
     int32_t mockedSockFd = 4;
-    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_FILE_NAME;
+    const std::string itcServerFileName = ITC_PATH_ITC_SERVER_SOCKET;
     
     EXPECT_CALL(*m_cWrapperIfMock, cSocket(_, _, _)).Times(1).WillOnce(Return(mockedSockFd));
     EXPECT_CALL(*m_cWrapperIfMock, cConnect(mockedSockFd,
@@ -460,8 +460,8 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest6)
     WithArg<1>([](void* buf)
     { 
         auto *lreply = reinterpret_cast<itc_ethernet_message_locate_itc_server_reply *>(buf);
-        lreply->msgno = ITC_MESSAGE_NUMBER_UNDEFINED;
-        lreply->assignedRegionId = ITC_NO_MAILBOX_ID;
+        lreply->msgno = ITC_MESSAGE_MSGNO_DEFAULT;
+        lreply->assignedRegionId = ITC_MAILBOX_ID_DEFAULT;
     }),Return((ssize_t)sizeof(itc_ethernet_message_locate_itc_server_reply))));
     EXPECT_CALL(*m_cWrapperIfMock, cClose(mockedSockFd)).Times(1).WillOnce(Return(0));
     
@@ -471,4 +471,4 @@ TEST_F(ItcTransportLSocketTest, locateItcServerTest6)
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

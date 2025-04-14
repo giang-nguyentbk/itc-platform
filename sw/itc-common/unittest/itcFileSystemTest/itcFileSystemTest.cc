@@ -8,16 +8,17 @@
 #include <gtest/gtest.h>
 
 #include "itc.h"
+#include "itcConstant.h"
 #include "itcCWrapperIfMock.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
 using namespace ::testing;
 using ::testing::AtLeast;
 using PathType = FileSystemIf::PathType;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using FileSystemIfReturnCode = FileSystemIf::FileSystemIfReturnCode;
 
 class FileSystemIfTest : public testing::Test
@@ -37,8 +38,8 @@ protected:
 
     void TearDown() override
     {
-        m_fileSystem->m_instance.reset();
-        m_cWrapperIfMock->m_instance.reset();
+        // m_fileSystem->m_instance.reset();
+        // m_cWrapperIfMock->m_instance.reset();
     }
     
     bool verifyPath(const std::filesystem::path &path, std::filesystem::perms mode)
@@ -62,9 +63,9 @@ protected:
         return isPathCreatedWithCorrectMode;
     }
     
-    bool createAndVerifyPath(const std::filesystem::path &path, std::filesystem::perms mode, size_t pos, PathType type)
+    bool createAndVerifyPath(const std::filesystem::path &path, PathType type, size_t pos = 0, std::filesystem::perms mode = std::filesystem::perms::all)
     {
-        m_fileSystem->createPath(path, mode, pos, type);
+        m_fileSystem->createPath(path, type, pos, mode);
         return verifyPath(path, mode);
     }
 protected:
@@ -100,7 +101,7 @@ TEST_F(FileSystemIfTest, createPathTest1)
     /***
      * Test scenario: test create recursive directories without ending with a slash.
      */
-    auto isPathCreatedWithCorrectMode = createAndVerifyPath("/tmp/abc/def/ghi", std::filesystem::perms::all, 2, PathType::DIRECTORY);
+    auto isPathCreatedWithCorrectMode = createAndVerifyPath("/tmp/abc/def/ghi", PathType::DIRECTORY, ITC_PATH_ITC_DIRECTORY_POSITION);
     ASSERT_EQ(isPathCreatedWithCorrectMode, true);
     m_fileSystem->removePath("/tmp/abc");
 }
@@ -110,7 +111,7 @@ TEST_F(FileSystemIfTest, createPathTest2)
     /***
      * Test scenario: test create recursive directories with ending with a slash.
      */
-    auto isPathCreatedWithCorrectMode = createAndVerifyPath("/tmp/abc/def/ghi/", std::filesystem::perms::all, 2, PathType::DIRECTORY);
+    auto isPathCreatedWithCorrectMode = createAndVerifyPath("/tmp/abc/def/ghi/", PathType::DIRECTORY, ITC_PATH_ITC_DIRECTORY_POSITION);
     ASSERT_EQ(isPathCreatedWithCorrectMode, true);
     m_fileSystem->removePath("/tmp/abc");
 }
@@ -120,7 +121,8 @@ TEST_F(FileSystemIfTest, createPathTest3)
     /***
      * Test scenario: test create an already exist directory.
      */
-    ASSERT_EQ(createAndVerifyPath("/tmp", std::filesystem::perms::all, 1, PathType::DIRECTORY), true);
+    constexpr size_t PATH_TMP_DIRECTORY_POSITION = 1;
+    ASSERT_EQ(createAndVerifyPath("/tmp", PathType::DIRECTORY, PATH_TMP_DIRECTORY_POSITION), true);
 }
 
 TEST_F(FileSystemIfTest, createPathTest4)
@@ -128,7 +130,8 @@ TEST_F(FileSystemIfTest, createPathTest4)
     /***
      * Test scenario: test create an not-permitted directory.
      */
-    ASSERT_EQ(createAndVerifyPath("/etc", std::filesystem::perms::all, 1, PathType::DIRECTORY), false);
+    constexpr size_t PATH_ETC_DIRECTORY_POSITION = 1;
+    ASSERT_EQ(createAndVerifyPath("/etc", PathType::DIRECTORY, PATH_ETC_DIRECTORY_POSITION), false);
 }
 
 TEST_F(FileSystemIfTest, existsTest1)
@@ -164,4 +167,4 @@ TEST_F(FileSystemIfTest, isAccessibleTest2)
 }
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

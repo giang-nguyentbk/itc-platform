@@ -5,7 +5,8 @@ libitccommon_la_CPPFLAGS	= \
 				$(AM_CPPFLAGS) \
 				-I$(abs_top_srcdir)/sw/itc-common/if \
 				-I$(abs_top_srcdir)/sw/itc-common/inc \
-				-I$(abs_top_srcdir)/sw/itc-api/if
+				-I$(abs_top_srcdir)/sw/itc-api/if \
+				-I$(abs_top_srcdir)/sw/itc-api/inc
 
 itccommon_COMMON_SOURCES 	= \
 				sw/itc-common/src/itcMutex.cc \

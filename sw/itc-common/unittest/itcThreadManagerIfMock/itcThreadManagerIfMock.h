@@ -1,10 +1,11 @@
 #pragma once
 
 #include "itcThreadManagerIf.h"
+#include "itcConstant.h"
 
 #include <gmock/gmock.h>
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
@@ -17,7 +18,7 @@ public:
     virtual ~ThreadManagerIfMock() = default;
     
     MOCK_METHOD(ThreadManagerIfReturnCode, setThreadAttributes, (int32_t policy, int32_t selfLimitPrio, int32_t priority), (override));
-    MOCK_METHOD(ThreadManagerIfReturnCode, addThread, (const Task &task, bool useHighestPriority, std::shared_ptr<Signal> &signal), (override));
+    MOCK_METHOD(ThreadManagerIfReturnCode, addThread, (const Task &task, std::shared_ptr<SyncObject> syncObj, bool useHighestPriority), (override));
     MOCK_METHOD(ThreadManagerIfReturnCode, startAllThreads, (), (override));
     MOCK_METHOD(ThreadManagerIfReturnCode, terminateAllThreads, (), (override));
 
@@ -25,8 +26,7 @@ private:
     ThreadManagerIfMock() = default;
 
 private:
-    static std::shared_ptr<ThreadManagerIfMock> m_instance;
-	static std::mutex m_singletonMutex;
+    SINGLETON_DECLARATION(ThreadManagerIfMock)
     
     friend class ItcTransportSysvMsgQueueTest;
 }; // class ThreadManagerIfMock
@@ -34,4 +34,4 @@ private:
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

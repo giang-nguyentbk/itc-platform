@@ -4,7 +4,6 @@
 #include <string>
 #include <filesystem>
 #include <fstream>
-#include <mutex>
 
 #include <cstdint>
 #include <errno.h>
@@ -16,18 +15,16 @@
 // #include "itc-common/inc/itcTptProvider.h"
 #include "itc.h"
 #include "itcCWrapperIf.h"
+#include "itcConstant.h"
 
-namespace ItcPlatform
+namespace ITC
 {
 namespace INTERNAL
 {
 
 // using namespace CommonUtils::V1::EnumUtils;
-using namespace ItcPlatform::PROVIDED;
+using namespace ITC::PROVIDED;
 using FileSystemIfReturnCode = FileSystemIf::FileSystemIfReturnCode;
-
-std::shared_ptr<FileSystem> FileSystem::m_instance = nullptr;
-std::mutex FileSystem::m_singletonMutex;
 
 /***
  * Just for compilation in unit testing.
@@ -40,23 +37,12 @@ std::mutex FileSystem::m_singletonMutex;
  * of getInstance().
 */
 #ifndef UNITTEST
-std::weak_ptr<FileSystemIf> FileSystemIf::getInstance()
-{
-	return FileSystem::getInstance();
-}
+SINGLETON_IF_DEFINITION(FileSystemIf, FileSystem)
 #endif
 
-std::weak_ptr<FileSystem> FileSystem::getInstance()
-{
-    std::scoped_lock<std::mutex> lock(m_singletonMutex);
-    if (m_instance == nullptr)
-    {
-        m_instance.reset(new FileSystem);
-    }
-    return m_instance;
-}
+SINGLETON_DEFINITION(FileSystem)
 
-FileSystemIfReturnCode FileSystem::createPath(const std::filesystem::path &path, std::filesystem::perms mode, size_t pos, PathType type)
+FileSystemIfReturnCode FileSystem::createPath(const std::filesystem::path &path, PathType type, size_t pos, std::filesystem::perms mode)
 {
     std::error_code err;
     err.clear();
@@ -171,4 +157,4 @@ bool FileSystem::isAccessible(const std::filesystem::path &path)
 
 
 } // namespace INTERNAL
-} // namespace ItcPlatform
+} // namespace ITC

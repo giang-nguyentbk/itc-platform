@@ -15,10 +15,9 @@ itc_platform_unittest_CPPFLAGS += -g
 endif
 
 TEST_SUITES_ADD = -Wl,--whole-archive,
-if ENABLE_UNITTEST_PARTIAL
-include unittest/Makefile.partial.suite.includes.am
+if ENABLE_UT_SPECIFIC_TEST_YES
+include unittest/Makefile.specific.suite.includes.am
 else
-# ENABLE_UNITTEST_ALL
 include unittest/Makefile.all.suite.includes.am
 endif
 TEST_SUITES_ADD += -Wl,--no-whole-archive
