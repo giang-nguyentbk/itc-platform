@@ -14,7 +14,7 @@
 #include "itcConstant.h"
 #include "itcMailbox.h"
 #include "itcAdminMessage.h"
-#include "itcSmartContainer.h"
+#include "itcConcurrentContainer.h"
 
 namespace ITC
 {
@@ -42,17 +42,18 @@ public:
     ItcTransportLocal(ItcTransportLocal &&other) noexcept = delete;
     ItcTransportLocal &operator=(ItcTransportLocal &&other) noexcept = delete;
     
-    bool initialise(std::shared_ptr<SmartContainer<ItcMailbox>> mboxList);
+    bool initialise(std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> mboxList, ItcMailboxRawPtr myMbox);
     
     ItcPlatformIfReturnCode send(ItcAdminMessageRawPtr adminMsg);
-    ItcAdminMessageRawPtr receive(ItcMailboxRawPtr myMbox, uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER, uint32_t timeout = 0);
+    ItcAdminMessageRawPtr receive(uint32_t mode = ITC_MODE_DEFAULT);
     
 private:
     SINGLETON_DECLARATION(ItcTransportLocal)
     ItcTransportLocal() = default;
     
 private:
-    std::weak_ptr<SmartContainer<ItcMailbox>> m_mboxList;
+    std::weak_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> m_mboxList;
+    ItcMailboxRawPtr m_myMbox {nullptr};
     
     friend class ItcTransportLocalTest;
 	FRIEND_TEST(ItcTransportLocalTest, sendTest1);

@@ -41,6 +41,8 @@ AM_CONDITIONAL([BUILD_TYPE_DEBUG], [check_build_type debug])
 AM_CONDITIONAL([BUILD_TYPE_RELEASE], [check_build_type release])
 AM_CONDITIONAL([BUILD_TYPE_UNITTEST], [check_build_type unittest])
 
+ASAN_FLAGS=""
+TSAN_FLAGS=""
 if test "x$BUILD_TYPE" = "xunittest"; then
     AC_ARG_VAR(ENABLE_UT_SPECIFIC_TEST, [choose: yes])
     AC_MSG_NOTICE([............checking ENABLE_UT_SPECIFIC_TEST: $ENABLE_UT_SPECIFIC_TEST............])
@@ -77,16 +79,44 @@ if test "x$BUILD_TYPE" = "xunittest"; then
         return 1
     }
     AM_CONDITIONAL([ENABLE_TEST_COVERAGE_YES], [check_enable_test_coverage yes])
+
+    AC_ARG_ENABLE([address-sanitizer],
+        [AS_HELP_STRING([--enable-address-sanitizer], [Enable Address-Sanitizer (default: no)])],
+        [enable_address_sanitizer=$enableval],
+        [enable_address_sanitizer=no]
+    )
+
+    AC_ARG_ENABLE([thread-sanitizer],
+        [AS_HELP_STRING([--enable-thread-sanitizer], [Enable Thread-Sanitizer (default: no)])],
+        [enable_thread_sanitizer=$enableval],
+        [enable_thread_sanitizer=no]
+    )
+
+    if test "$enable_address_sanitizer" = yes; then
+        ASAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1 -fno-optimize-sibling-calls -fno-ipa-icf"
+        AM_CONDITIONAL([ENABLE_ADDRESS_SANITIZER_YES], [true])
+    else
+        AM_CONDITIONAL([ENABLE_ADDRESS_SANITIZER_YES], [false])
+    fi
+
+    if test "$enable_thread_sanitizer" = yes; then
+        TSAN_FLAGS="-fsanitize=thread -g -O1 -fno-omit-frame-pointer -fPIE"
+        AM_CONDITIONAL([ENABLE_THREAD_SANITIZER_YES], [true])
+    else
+        AM_CONDITIONAL([ENABLE_THREAD_SANITIZER_YES], [false])
+    fi
 else
 AM_CONDITIONAL([ENABLE_UT_SPECIFIC_TEST_YES], [false])
 AM_CONDITIONAL([ENABLE_VALGRIND_YES], [false])
 AM_CONDITIONAL([ENABLE_TEST_COVERAGE_YES], [false])
+AM_CONDITIONAL([ENABLE_ADDRESS_SANITIZER_YES], [false])
+AM_CONDITIONAL([ENABLE_THREAD_SANITIZER_YES], [false])
 fi
 
-AM_CFLAGS="$AM_CFLAGS -std=c23 -Wall -Werror -Wno-unused-parameter -Wextra -pedantic"
+AM_CFLAGS="$AM_CFLAGS $ASAN_FLAGS $TSAN_FLAGS -std=c23 -Wall -Werror -Wno-unused-parameter -Wextra -pedantic"
 AC_SUBST([AM_CFLAGS])
 
-AM_CXXFLAGS="$AM_CXXFLAGS -std=c++20 -Wall -Werror -Wno-unused-parameter -Wextra -pedantic"
+AM_CXXFLAGS="$AM_CXXFLAGS $ASAN_FLAGS $TSAN_FLAGS -std=c++20 -Wall -Werror -Wno-unused-parameter -Wextra -pedantic"
 AC_SUBST([AM_CXXFLAGS])
 
 ARFLAGS=cr

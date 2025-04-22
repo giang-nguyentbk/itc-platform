@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <queue>
+#include <functional>
 
 // #include <enumUtils.h>
 
@@ -12,6 +13,7 @@
 #include "itcSyncObject.h"
 #include "itcCWrapperIf.h"
 #include "itcMutex.h"
+#include "itcLockFreeQueue.h"
 
 #include <gtest/gtest.h>
 
@@ -26,50 +28,43 @@ namespace INTERNAL
 
 using namespace ITC::PROVIDED;
 
-#define ITC_FLAG_MAILBOX_IN_RX      (uint32_t)(0x1);
+#define ITC_FLAG_MAILBOX_IN_RX      			(uint32_t)(0x1)
+#define ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE      	(uint32_t)(1024)
 
+/* To enable lock-free data structure, never make sizeof(ItcMailbox) > 64 bytes. */
 class ItcMailbox
 {
 public:
-	ItcMailbox(const std::string &iName, uint32_t iFlags = ITC_FLAG_DEFAULT)
-		: name(iName),
-		  flags(iFlags)
+	ItcMailbox(uint32_t flags = ITC_FLAG_DEFAULT)
+		:  m_flags(flags)
 	{
-		m_syncObj = std::make_shared<SyncObject>([](SyncObjectElementsSharedPtr elemsPtr)
-		{
-			auto ret = CWrapperIf::getInstance().lock()->cPthreadCondAttrSetClock(&elemsPtr->condAttrs, CLOCK_MONOTONIC);
-			if(ret != 0) UNLIKELY
-			{
-				TPT_TRACE(TRACE_ERROR, SSTR("Failed to pthread_condattr_setclock, error code = ", ret));
-				return -1;
-			}
-			
-			ret = CWrapperIf::getInstance().lock()->cPthreadMutexAttrSetType(&elemsPtr->mtxAttrs, PTHREAD_MUTEX_ERRORCHECK);
-			if(ret != 0) UNLIKELY
-			{
-				TPT_TRACE(TRACE_ERROR, SSTR("Failed to pthread_condattr_setclock, error code = ", ret));
-				return -1;
-			}
-			
-			return 0;
-		});
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
 	}
 	
 	~ItcMailbox()
 	{
-		reset();
+		setState(false);
 	}
 	
-	ItcMailbox(const ItcMailbox &other) = default;
-	ItcMailbox &operator=(const ItcMailbox &other) = default;
+	ItcMailbox(const ItcMailbox &other)
+	{
+		m_mailboxId = other.m_mailboxId;
+		m_flags = other.m_flags;
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
+	}
+	ItcMailbox &operator=(const ItcMailbox &other)
+	{
+		m_mailboxId = other.m_mailboxId;
+		m_flags = other.m_flags;
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
+		return *this;
+	}
 	ItcMailbox(ItcMailbox &&other) noexcept
 	{
 		if(this != &other)
 		{
-			name = std::move(other.name);
-			mailboxId = std::move(other.mailboxId);
-			flags = std::move(other.flags);
-			m_syncObj = std::move(other.m_syncObj);
+			m_mailboxId = std::move(other.m_mailboxId);
+			m_flags = std::move(other.m_flags);
 			m_rxMsgQueue = std::move(other.m_rxMsgQueue);
 		}
 	}
@@ -77,34 +72,42 @@ public:
 	{
 		if(this != &other)
 		{
-			reset();
-			name = std::move(other.name);
-			mailboxId = std::move(other.mailboxId);
-			flags = std::move(other.flags);
-			m_syncObj = std::move(other.m_syncObj);
+			setState(false);
+			m_mailboxId = std::move(other.m_mailboxId);
+			m_flags = std::move(other.m_flags);
 			m_rxMsgQueue = std::move(other.m_rxMsgQueue);
 		}
 		return *this;
 	}
 	
-	void enqueueAndNotify(ItcAdminMessageRawPtr msg);
-	ItcAdminMessageRawPtr dequeue(uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER, uint32_t timeout = 0);
-	int32_t getMboxFd();
-	void reset();
+	bool operator==(const ItcMailbox& other) const
+	{
+        return m_mailboxId == other.m_mailboxId && m_flags == other.m_flags;
+    }
 	
-private:
-	void notify();
-	void push(ItcAdminMessageRawPtr msg);
-	ItcAdminMessageRawPtr pop();
+	bool operator!=(const ItcMailbox& other) const
+	{
+        return !(*this == other);
+    }
+	
+	bool push(ItcAdminMessageRawPtr msg);
+	/* Default is blocking mode. */
+	ItcAdminMessageRawPtr pop(uint32_t mode = ITC_MODE_DEFAULT);
+	void setState(bool newState);
 	
 public:
-	std::string     						name;
-    itc_mailbox_id_t   						mailboxId {ITC_MAILBOX_ID_DEFAULT};
-    uint32_t        						flags {ITC_FLAG_DEFAULT};
+	itc_mailbox_id_t m_mailboxId {ITC_MAILBOX_ID_DEFAULT};
+    uint32_t m_flags {ITC_FLAG_DEFAULT};
 	
 private:
-	std::shared_ptr<SyncObject> 			m_syncObj {nullptr};
-	std::queue<ItcAdminMessageRawPtr> 		m_rxMsgQueue;
+	std::unique_ptr<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>> m_rxMsgQueue {nullptr};
+	std::atomic_bool m_isActive {false};
+	
+	friend class ItcMailboxTest;
+	FRIEND_TEST(ItcMailboxTest, test1);
+	FRIEND_TEST(ItcMailboxTest, test2);
+	FRIEND_TEST(ItcMailboxTest, test3);
+	FRIEND_TEST(ItcMailboxTest, test4);
 	
 	friend class ItcTransportLocalTest;
 	FRIEND_TEST(ItcTransportLocalTest, sendTest1);

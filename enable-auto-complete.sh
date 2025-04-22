@@ -21,7 +21,9 @@ _options=(
     "--enable-test-coverage"
     "--test-coverage-rate="
     
-    "--enable-rebuild"
+    "--rebuild"
+    "--enable-address-sanitizer"
+    "--enable-thread-sanitizer"
 )
 
 # Function for Bash completion

@@ -13,6 +13,12 @@ endif
 if ENABLE_VALGRIND_YES
 itc_platform_unittest_CPPFLAGS += -g
 endif
+if ENABLE_ADDRESS_SANITIZER_YES
+itc_platform_unittest_LDFLAGS += -fsanitize=address
+endif
+if ENABLE_THREAD_SANITIZER_YES
+itc_platform_unittest_LDFLAGS += -fsanitize=thread -pie
+endif
 
 TEST_SUITES_ADD = -Wl,--whole-archive,
 if ENABLE_UT_SPECIFIC_TEST_YES

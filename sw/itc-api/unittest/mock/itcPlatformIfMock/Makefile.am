@@ -8,10 +8,10 @@ libitcPlatformIfMock_a_CPPFLAGS	= \
 				-I$(abs_top_srcdir)/sw/itc-common/inc \
 				-I$(abs_top_srcdir)/sw/itc-api/if \
 				-I$(abs_top_srcdir)/sw/itc-api/inc \
-				-I$(abs_top_srcdir)/sw/itc-api/unittest/itcPlatformIfMock
+				-I$(abs_top_srcdir)/sw/itc-api/unittest/mock/itcPlatformIfMock
 
 libitcPlatformIfMock_a_COMMON_SOURCES 	= \
-				sw/itc-api/unittest/itcPlatformIfMock/itcPlatformIfMock.cc
+				sw/itc-api/unittest/mock/itcPlatformIfMock/itcPlatformIfMock.cc
 
 ###
 #

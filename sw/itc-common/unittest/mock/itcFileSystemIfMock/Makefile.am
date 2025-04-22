@@ -8,10 +8,10 @@ libitcFileSystemIfMock_a_CPPFLAGS	= \
 				-I$(abs_top_srcdir)/sw/itc-common/inc \
 				-I$(abs_top_srcdir)/sw/itc-api/if \
 				-I$(abs_top_srcdir)/sw/itc-api/inc \
-				-I$(abs_top_srcdir)/sw/itc-common/unittest/itcFileSystemIfMock
+				-I$(abs_top_srcdir)/sw/itc-common/mock/unittest/itcFileSystemIfMock
 
 libitcFileSystemIfMock_a_COMMON_SOURCES 	= \
-				sw/itc-common/unittest/itcFileSystemIfMock/itcFileSystemIfMock.cc
+				sw/itc-common/unittest/mock/itcFileSystemIfMock/itcFileSystemIfMock.cc
 
 ###
 #

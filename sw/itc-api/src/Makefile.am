@@ -9,7 +9,7 @@ libitcapi_la_CPPFLAGS	= \
 				-I$(abs_top_srcdir)/sw/itc-api/inc
 
 itcapi_COMMON_SOURCES 	= \
-				sw/itc-api/src/itcImpl.cc
+				sw/itc-api/src/itcPlatform.cc
 
 ###
 #

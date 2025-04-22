@@ -25,7 +25,7 @@ public:
     MOCK_METHOD(itc_mailbox_id_t, createMailbox, (const std::string &name, uint32_t flags), (override));
     MOCK_METHOD(ItcPlatformIfReturnCode, deleteMailbox, (itc_mailbox_id_t mboxId), (override));
     MOCK_METHOD(ItcPlatformIfReturnCode, send, (ItcMessageRawPtr msg, const MailboxContactInfo &toMbox), (override));
-    MOCK_METHOD(ItcMessageRawPtr, receive, (uint32_t timeout, uint32_t mode), (override));
+    MOCK_METHOD(ItcMessageRawPtr, receive, (uint32_t mode), (override));
     MOCK_METHOD(MailboxContactInfo, locateMailboxSync, (const std::string &mboxName, uint32_t mode, uint32_t timeout), (override));
     MOCK_METHOD(ItcPlatformIfReturnCode, locateMailboxAsync, (const std::string &mboxName, uint32_t mode), (override));
     MOCK_METHOD(itc_mailbox_id_t, getSender, (const ItcMessageRawPtr &msg), (override));

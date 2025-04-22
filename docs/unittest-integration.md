@@ -32,16 +32,15 @@ $ stat -c %s itc_platform_unittest
 
 ## How to get test coverage
 ```bash
-# Use lcov to get test coverage visualisation.
-$ sudo apt install lcov -y
-$ sudo apt install xdg-utils -y
+# Use gcov to get test coverage info or lcov + genhtml to get test coverage visualisation.
+    + gcov is GCC's builtin
+    + Install lcov + genhtml (a tool that comes with lcov):
+        $ sudo apt install lcov
     
 # Step 1:
-+ Add -fprofile-arcs -ftest-coverage --coverage to *_CPPFLAGS
-and --coverage to AM_LDFLAGS.
+    + Add -fprofile-arcs -ftest-coverage --coverage to AM_CFLAGS & AM_CPPFLAGS & AM_CXXFLAGS,
+    and --coverage to AM_LDFLAGS.
 # Step 2:
     + Compile unit test main program.
-# Step 3:
-    + 
 
 ```

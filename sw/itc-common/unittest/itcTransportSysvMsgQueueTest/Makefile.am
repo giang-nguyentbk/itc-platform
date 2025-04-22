@@ -8,10 +8,10 @@ libitcTransportSysvMsgQueueTest_a_CPPFLAGS	= \
 				-I$(abs_top_srcdir)/sw/itc-common/inc \
 				-I$(abs_top_srcdir)/sw/itc-api/if \
 				-I$(abs_top_srcdir)/sw/itc-api/inc \
-				-I$(abs_top_srcdir)/sw/itc-common/unittest/itcFileSystemIfMock \
-				-I$(abs_top_srcdir)/sw/itc-common/unittest/itcCWrapperIfMock \
-				-I$(abs_top_srcdir)/sw/itc-common/unittest/itcThreadManagerIfMock \
-				-I$(abs_top_srcdir)/sw/itc-api/unittest/itcPlatformIfMock
+				-I$(abs_top_srcdir)/sw/itc-common/unittest/mock/itcFileSystemIfMock \
+				-I$(abs_top_srcdir)/sw/itc-common/unittest/mock/itcCWrapperIfMock \
+				-I$(abs_top_srcdir)/sw/itc-common/unittest/mock/itcThreadManagerIfMock \
+				-I$(abs_top_srcdir)/sw/itc-api/unittest/mock/itcPlatformIfMock
 
 
 libitcTransportSysvMsgQueueTest_a_COMMON_SOURCES 	= \

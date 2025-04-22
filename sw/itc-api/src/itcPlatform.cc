@@ -302,7 +302,7 @@ ItcPlatformIfReturnCode ItcPlatform::send(ItcMessageRawPtr msg, const MailboxCon
     return MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_FAILED);
 }
 
-ItcMessageRawPtr ItcPlatform::receive(uint32_t mode, uint32_t timeout)
+ItcMessageRawPtr ItcPlatform::receive(uint32_t mode)
 {
     if(!m_isInitialised)
     {
@@ -314,7 +314,7 @@ ItcMessageRawPtr ItcPlatform::receive(uint32_t mode, uint32_t timeout)
         return nullptr;
     }
     
-    auto adminMsg = ItcTransportLocal::getInstance().lock()->receive(m_myMailbox, mode, timeout);
+    auto adminMsg = ItcTransportLocal::getInstance().lock()->receive(m_myMailbox, mode);
     return CONVERT_TO_USER_MESSAGE(adminMsg);
 }
 
@@ -354,7 +354,7 @@ MailboxContactInfo ItcPlatform::locateMailboxSync(const std::string &mboxName, u
     }
     
     uint32_t timeoutMode = mode & ITC_MASK_TIMEOUT;
-    auto rep = receive(timeoutMode, timeout);
+    auto rep = receive(timeoutMode);
     if(!rep)
     {
         return info;

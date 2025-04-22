@@ -14,24 +14,6 @@
 // 	EnumWrapperClass(EnumWrapperClass##Raw::enumRawValue)
 
 /***
- * TODO: move this macro into common-utils project
- */
-#ifdef __cplusplus
-#define LIKELY [[likely]] // C++20
-#define UNLIKELY [[unlikely]] // C++20
-#define DEPRECATED(reason) [[deprecated(reason)]] // C++14
-#define MAYBE_UNUSED [[maybe_unused]] // C++17
-#define NODISCARD(reason) [[nodiscard(reason)]] // C++20
-#else
-#define LIKELY_WITH_PROBABILITY(cond, ret, proba) \
-	__builtin_expect_with_probability(cond, ret, proba) /* proba = 0.0 -> 1.0 */
-#define LIKELY(cond, ret) \
-	__builtin_expect(cond, ret) /* proba is 90% by default */
-#define LIKELY(x)      __builtin_expect(!!(x), 1)
-#define UNLIKELY(x)    __builtin_expect(!!(x), 0)
-#endif
-
-/***
  * TODO: For compilation only (TBD)
  */
 #define MAKE_RETURN_CODE(EnumClassWrapper, rawValue) \
@@ -48,22 +30,19 @@ namespace ITC
 {
 namespace PROVIDED
 {
-	
+#define ITC_MAX_SUPPORTED_MAILBOXES 							(uint32_t)(1024)
 #define ITC_MAILBOX_ID_DEFAULT 									(uint32_t)(0xFFFFFFFF)
 #define ITC_MESSAGE_MSGNO_DEFAULT 								(uint32_t)(0xFFFFFFFF)
 #define ITC_MESSAGE_MSGNO_SIZE 									(uint32_t)(sizeof(uint32_t))
 #define ITC_FLAG_DEFAULT 										(uint32_t)(0b0)
 #define ITC_FLAG_EXTERNAL_COMMUNICATION_NEEDED 					(uint32_t)(0b1)
 #define ITC_MODE_DEFAULT 										(uint32_t)(0b0)
-#define ITC_MODE_TIMEOUT_NO_WAIT								(uint32_t)(0b1)
-#define ITC_MODE_TIMEOUT_WAIT_FOREVER							(uint32_t)(0b10)
-#define ITC_MODE_TIMEOUT_WAIT_FOR_MSEC							(uint32_t)(0b11)
-#define ITC_MASK_TIMEOUT										(uint32_t)(0x11)
-#define ITC_MODE_LOCATE_IN_REGION								(uint32_t)(0b100)
-#define ITC_MODE_LOCATE_IN_WORLD								(uint32_t)(0b1000)
-#define ITC_MODE_LOCATE_IN_UNIVERSE								(uint32_t)(0b10000)
-#define ITC_MODE_LOCATE_IN_ALL									(uint32_t)(0b11100)
-#define ITC_MASK_LOCATE											(uint32_t)(0x11100)
+#define ITC_MODE_RECEIVE_NON_BLOCKING							(uint32_t)(0b1)
+#define ITC_MODE_LOCATE_IN_REGION								(uint32_t)(0b10)
+#define ITC_MODE_LOCATE_IN_WORLD								(uint32_t)(0b100)
+#define ITC_MODE_LOCATE_IN_UNIVERSE								(uint32_t)(0b1000)
+#define ITC_MODE_LOCATE_IN_ALL									(uint32_t)(0b1110)
+#define ITC_MASK_LOCATE											(uint32_t)(0x1110)
 #define ITC_SYSTEM_BASE 										(uint32_t)(0x00000000)
 #define ITC_SYSTEM_MESSAGE_NUMBER_BASE 							(uint32_t)(ITC_SYSTEM_BASE + 0x10)
 #define ITC_SYSTEM_MESSAGE_LOCATE_MBOX_IN_ITC_SERVER_REPLY		(uint32_t)(ITC_SYSTEM_MESSAGE_NUMBER_BASE + 0x5)
@@ -191,12 +170,10 @@ public:
 	virtual ItcPlatformIfReturnCode send(ItcMessageRawPtr msg, const MailboxContactInfo &toMbox) = 0;
 	
 	/***
-	 * There are 3 modes of timeout:
-	 * + ITC_MODE_TIMEOUT_WAIT_FOREVER (default) 	: 0x1 	-> timeout value : is ignored
-	 * + ITC_MODE_TIMEOUT_NO_WAIT  					: 0b10 	-> timeout value : is ignored
-	 * + ITC_MODE_TIMEOUT_WAIT_FOR_MSEC 			: 0x11 	-> timeout value : is in milli-seconds
+	 * There are 1 modes:
+	 * + ITC_MODE_RECEIVE_NON_BLOCKING
 	 */
-	virtual ItcMessageRawPtr receive(uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER, uint32_t timeout = 0) = 0;
+	virtual ItcMessageRawPtr receive(uint32_t mode = ITC_MODE_DEFAULT) = 0;
 	
 	/***
 	 * To locate mailboxes, you must give itc-server a mode (OR bits)
@@ -218,7 +195,7 @@ public:
 	 * 
 	 * mode = (ITC_MODE_TIMEOUT_* | ITC_MODE_LOCATE_*)
 	 */
-	virtual MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER | ITC_MODE_LOCATE_IN_ALL, uint32_t timeout = 0) = 0;
+	virtual MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t mode = ITC_MODE_LOCATE_IN_ALL, uint32_t timeout = 0) = 0;
 	
 	/***
 	 * Instead of blocking on locating requests and waiting for results synchronously from itc-server side,

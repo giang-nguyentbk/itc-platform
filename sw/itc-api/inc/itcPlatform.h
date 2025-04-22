@@ -5,7 +5,7 @@
 #include "itcMailbox.h"
 #include "itcAdminMessage.h"
 #include "itcConstant.h"
-#include "itcSmartContainer.h"
+#include "itcConcurrentContainer.h"
 
 #include <mutex>
 #include <memory>
@@ -44,8 +44,8 @@ public:
 	itc_mailbox_id_t createMailbox(const std::string &name, uint32_t flags = ITC_FLAG_DEFAULT) override;
 	ItcPlatformIfReturnCode deleteMailbox(itc_mailbox_id_t mboxId) override;
 	ItcPlatformIfReturnCode send(ItcMessageRawPtr msg, const MailboxContactInfo &toMbox) override;
-	ItcMessageRawPtr receive(uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER, uint32_t timeout = 0) override;
-	MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t mode = ITC_MODE_TIMEOUT_WAIT_FOREVER | ITC_MODE_LOCATE_IN_ALL, uint32_t timeout = 0) override;
+	ItcMessageRawPtr receive(uint32_t mode = ITC_MODE_DEFAULT) override;
+	MailboxContactInfo locateMailboxSync(const std::string &mboxName, uint32_t mode = ITC_MODE_LOCATE_IN_ALL, uint32_t timeout = 0) override;
 	ItcPlatformIfReturnCode locateMailboxAsync(const std::string &mboxName, uint32_t mode = ITC_MODE_LOCATE_IN_ALL) override;
 	
 	itc_mailbox_id_t getSender(const ItcMessageRawPtr &msg) override;
@@ -74,7 +74,7 @@ private:
 	
 	itc_mailbox_id_t m_regionId {ITC_MAILBOX_ID_DEFAULT};
 	itc_mailbox_id_t m_itcServerMboxId {ITC_MAILBOX_ID_DEFAULT};
-	std::shared_ptr<SmartContainer<ItcMailbox>> m_mboxList {nullptr};
+	std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> m_mboxList {nullptr};
 	pthread_key_t m_destructKey;
 	bool m_isInitialised {false};
 	static thread_local ItcMailboxRawPtr m_myMailbox;

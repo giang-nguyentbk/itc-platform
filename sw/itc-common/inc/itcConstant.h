@@ -16,13 +16,29 @@ namespace ITC
 namespace INTERNAL
 {
 
+/***
+ * TODO: move this macro into common-utils project
+ */
+#ifdef __cplusplus
+#define LIKELY [[likely]] // C++20
+#define UNLIKELY [[unlikely]] // C++20
+#define DEPRECATED(reason) [[deprecated(reason)]] // C++14
+#define MAYBE_UNUSED [[maybe_unused]] // C++17
+#define NODISCARD(reason) [[nodiscard(reason)]] // C++20
+#endif
+
+#define CLIKELY_WITH_PROBABILITY(cond, ret, proba) \
+	__builtin_expect_with_probability(cond, ret, proba) /* proba = 0.0 -> 1.0 */
+// #define CLIKELY(cond, ret) __builtin_expect(cond, ret) /* proba is 90% by default */
+#define CLIKELY(x)      __builtin_expect(!!(x), 1)
+#define CUNLIKELY(x)    __builtin_expect(!!(x), 0)
+
 #define ITC_FLAG_I_AM_ITC_SERVER                                    (uint32_t)(0x00000001)
 #define ITC_MASK_UNIT_ID                                            (uint32_t)(0x0000FFFF)
 #define ITC_MASK_REGION_ID                                          (uint32_t)(0xFFF00000)
 #define ITC_REGION_ID_SHIFT                                         (uint32_t)(20) /* Right shift by 20 bits to get region ID */
 #define ITC_MAX_SOCKET_RX_BUFFER_SIZE                               (uint32_t)(1024)
 #define ITC_MAX_SUPPORTED_REGIONS                                   (uint32_t)(255)
-#define ITC_MAX_SUPPORTED_MAILBOXES                                 (uint32_t)(65535)
 #define ITC_PATH_ITC_DIRECTORY_POSITION                             (size_t)(2) /* 0th is '/', 1st is '/tmp', so 2nd is '/tmp/itc' */
 #define ITC_PATH_ITC_SERVER_SOCKET                                  "/tmp/itc/itc-server/itc-server"
 // #define ITC_PATH_ITC_SERVER_PROGRAM                                 "/usr/local/bin/itc-server"

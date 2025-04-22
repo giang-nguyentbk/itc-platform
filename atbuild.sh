@@ -21,6 +21,8 @@ ENABLE_VALGRIND="no"
 ENABLE_TEST_COVERAGE="no"
 TEST_COVERAGE_RATE="92"
 ENABLE_REBUILD="no"
+ENABLE_ADDRESS_SANITIZER=""
+ENABLE_THREAD_SANITIZER=""
 
 # Parse arguments
 for arg in "$@"; do
@@ -55,8 +57,16 @@ for arg in "$@"; do
             TEST_COVERAGE_RATE="${arg#*=}"
             shift
             ;;
-        --enable-rebuild)
+        --rebuild)
             ENABLE_REBUILD="yes"
+            shift
+            ;;
+        --enable-address-sanitizer)
+            ENABLE_ADDRESS_SANITIZER="--enable-address-sanitizer"
+            shift
+            ;;
+        --enable-thread-sanitizer)
+            ENABLE_THREAD_SANITIZER="--enable-thread-sanitizer"
             shift
             ;;
         *)
@@ -76,6 +86,8 @@ echo "[+] Enable Valgrind: $ENABLE_VALGRIND"
 echo "[+] Enable Test Coverage: $ENABLE_TEST_COVERAGE"
 echo "[+] Test Coverage Rate: $TEST_COVERAGE_RATE"
 echo "[+] Enable Rebuild: $ENABLE_REBUILD"
+echo "[+] Enable Address Sanitizer: $ENABLE_ADDRESS_SANITIZER"
+echo "[+] Enable Thread Sanitizer: $ENABLE_THREAD_SANITIZER"
 
 # Validate conditions: If valgrind or coverage is enabled but UT is disabled, return an error
 if  [[ "$BUILD_TARGET" != "target1" ]] &&
@@ -113,7 +125,27 @@ if  [[ "$ENABLE_REBUILD" != "no" ]] &&
     echo "[-] Error: Unknown ENABLE_REBUILD option: $ENABLE_REBUILD"
     exit 1
 fi
-if { [[ "$ENABLE_VALGRIND" == "yes" ]] || [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; } &&
+if  [[ "$ENABLE_ADDRESS_SANITIZER" != "" ]] &&
+    [[ "$ENABLE_ADDRESS_SANITIZER" != "--enable-address-sanitizer" ]]; then
+    echo "[-] Error: Unknown ENABLE_ADDRESS_SANITIZER option: $ENABLE_ADDRESS_SANITIZER"
+    exit 1
+fi
+if  [[ "$ENABLE_THREAD_SANITIZER" != "" ]] &&
+    [[ "$ENABLE_THREAD_SANITIZER" != "--enable-thread-sanitizer" ]]; then
+    echo "[-] Error: Unknown ENABLE_THREAD_SANITIZER option: $ENABLE_THREAD_SANITIZER"
+    exit 1
+fi
+if  [[ "$ENABLE_ADDRESS_SANITIZER" == "--enable-address-sanitizer" ]] &&
+    [[ "$ENABLE_THREAD_SANITIZER" == "--enable-thread-sanitizer" ]]; then
+    echo "[-] Error: Please choose either --enable-address-sanitizer or --enable-thread-sanitizer only!"
+    exit 1
+fi
+if  [[ "$ENABLE_VALGRIND" == "yes" ]] && { [[ "$ENABLE_ADDRESS_SANITIZER" == "--enable-address-sanitizer" ]] ||
+    [[ "$ENABLE_THREAD_SANITIZER" == "--enable-thread-sanitizer" ]]; } then
+    echo "[-] Error: --enable-valgrind cannot be used with neither --enable-address-sanitizer nor --enable-thread-sanitizer!"
+    exit 1
+fi
+if { [[ "$ENABLE_VALGRIND" == "yes" ]] || [[ "$ENABLE_TEST_COVERAGE" == "yes" ]] || [[ "$ENABLE_ADDRESS_SANITIZER" == "--enable-address-sanitizer" ]] || [[ "$ENABLE_THREAD_SANITIZER" == "--enable-thread-sanitizer" ]]; } &&
    [[ "$BUILD_TYPE" != "unittest" ]] ; then
     echo "[-] Error: --enable-valgrind or --enable-test-coverage requires --build-type-unittest"
     exit 1
@@ -136,6 +168,8 @@ AUTO_BUILD_COMMAND+="BUILD_TYPE=$BUILD_TYPE "
 AUTO_BUILD_COMMAND+="ENABLE_UT_SPECIFIC_TEST=$ENABLE_UT_SPECIFIC_TEST "
 AUTO_BUILD_COMMAND+="ENABLE_VALGRIND=$ENABLE_VALGRIND "
 AUTO_BUILD_COMMAND+="ENABLE_TEST_COVERAGE=$ENABLE_TEST_COVERAGE "
+AUTO_BUILD_COMMAND+="$ENABLE_ADDRESS_SANITIZER "
+AUTO_BUILD_COMMAND+="$ENABLE_THREAD_SANITIZER "
 AUTO_BUILD_COMMAND+="&& echo '================== COMPILATION START ==================' "
 AUTO_BUILD_COMMAND+="&& make "
 AUTO_BUILD_COMMAND+="&& echo '================== COMPILATION DONE ==================' "
@@ -145,12 +179,13 @@ if  [[ "$BUILD_TYPE" == "unittest" ]]; then
     AUTO_BUILD_COMMAND+="&& for i in {1..$UT_REPEAT_COUNT}; do "
     
     if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
-        AUTO_BUILD_COMMAND+="valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all --xml=yes --xml-file=$VALGRIND_REPORT_XML $UNITTEST_PROGRAM"
-    else
-        AUTO_BUILD_COMMAND+="$UNITTEST_PROGRAM"
+        AUTO_BUILD_COMMAND+="valgrind --leak-check=yes --leak-check=full --show-leak-kinds=all --xml=yes --xml-file=$VALGRIND_REPORT_XML "
+    fi
+    if [[ "$ENABLE_THREAD_SANITIZER" == "--enable-thread-sanitizer" ]]; then
+        AUTO_BUILD_COMMAND+="TSAN_OPTIONS=\"verbosity=3\" setarch \`uname -m\` -R "
     fi
     
-    AUTO_BUILD_COMMAND+="; done > $UNITTEST_LOG 2>&1 || true "
+    AUTO_BUILD_COMMAND+="$UNITTEST_PROGRAM; done > $UNITTEST_LOG 2>&1 || true "
     
     if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
         INCLUDE_DIRS=("sw/itc-api/if" "sw/itc-common/if" "sw/itc-api/inc" "sw/itc-common/inc" "sw/itc-api/src" "sw/itc-common/src")
@@ -162,10 +197,10 @@ if  [[ "$BUILD_TYPE" == "unittest" ]]; then
             INCLUDE_FLAGS+="--include $dir "
         done
 
-		# NON_PORTABLE_LCOV_IGNORING_OPTIONS="--ignore-errors empty --ignore-errors unused "
-	NON_PORTABLE_LCOV_IGNORING_OPTIONS=""
-	# NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
-	NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
+        # NON_PORTABLE_LCOV_IGNORING_OPTIONS="--ignore-errors empty --ignore-errors unused "
+		NON_PORTABLE_LCOV_IGNORING_OPTIONS=""
+		# NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
+		NON_PORTABLE_LCOV_FILTERING_OPTION="$INCLUDE_FLAGS"
         AUTO_BUILD_COMMAND+="&& lcov --capture --directory sw/ $NON_PORTABLE_LCOV_FILTERING_OPTION --output-file $TEST_COVERAGE_INFO $NON_PORTABLE_LCOV_IGNORING_OPTIONS "
 
         AUTO_BUILD_COMMAND+="&& genhtml $TEST_COVERAGE_INFO --output-directory $TEST_COVERAGE_OUTPUT "
@@ -196,10 +231,19 @@ eval "$AUTO_BUILD_COMMAND"
 
 # Verify output
 if  [[ "$BUILD_TYPE" == "unittest" ]]; then
-    grep -Eq 'PASSED' $UNITTEST_LOG && echo -e '[+] UNIT TEST: \t\t [PASSED] ✅' || echo -e '[-] UNIT TEST: \t\t [FAILED] ❌'
+    if [[ ! -f "$UNITTEST_LOG" || $(grep -E '\[  FAILED  \]' "$UNITTEST_LOG") ]]; then
+        echo -e '[-] UNIT TEST: \t\t\t [FAILED] ❌'
+    else
+        echo -e '[+] UNIT TEST: \t\t\t [PASSED] ✅'
+    fi
+
     
     if [[ "$ENABLE_VALGRIND" == "yes" ]]; then
-        grep -Eq '<error>|<fatal_signal>' $VALGRIND_REPORT_XML && echo -e '[-] VALGRIND TEST: \t [FAILED] ❌' || echo -e '[+] VALGRIND TEST: \t [PASSED] ✅'
+        if [[ ! -f "$VALGRIND_REPORT_XML" || $(grep -E '<error>|<fatal_signal>' "$VALGRIND_REPORT_XML") ]]; then
+            echo -e '[-] VALGRIND TEST: \t\t [FAILED] ❌'
+        else
+            echo -e '[+] VALGRIND TEST: \t\t [PASSED] ✅'
+        fi
     fi
     
     if [[ "$ENABLE_TEST_COVERAGE" == "yes" ]]; then
@@ -225,9 +269,25 @@ if  [[ "$BUILD_TYPE" == "unittest" ]]; then
         FUNCTIONS_RATE_PASSED=$(echo "$FUNCTIONS_RATE >= $TEST_COVERAGE_RATE" | bc)
         
         if [[ "$LINES_RATE_PASSED" -eq 1 && "$FUNCTIONS_RATE_PASSED" -eq 1 ]]; then
-            echo -e '[+] COVERAGE TEST: \t [PASSED] ✅'
+            echo -e '[+] COVERAGE TEST: \t\t [PASSED] ✅'
         else
-            echo -e '[-] COVERAGE TEST: \t [FAILED] ❌'
+            echo -e '[-] COVERAGE TEST: \t\t [FAILED] ❌'
+        fi
+    fi
+    
+    if [[ "$ENABLE_ADDRESS_SANITIZER" == "--enable-address-sanitizer" ]]; then
+        if [[ ! -f "$UNITTEST_LOG" || $(grep -E 'ERROR: .*Sanitizer:' "$UNITTEST_LOG") ]]; then
+            echo -e '[-] ADDRESS-SANITIZER TEST: \t [FAILED] ❌'
+        else
+            echo -e '[+] ADDRESS-SANITIZER TEST: \t [PASSED] ✅'
+        fi
+    fi
+    
+    if [[ "$ENABLE_THREAD_SANITIZER" == "--enable-thread-sanitizer" ]]; then
+        if [[ ! -f "$UNITTEST_LOG" || $(grep -E 'WARNING: ThreadSanitizer:' "$UNITTEST_LOG") ]]; then
+            echo -e '[-] THREAD-SANITIZER TEST: \t [FAILED] ❌'
+        else
+            echo -e '[+] THREAD-SANITIZER TEST: \t [PASSED] ✅'
         fi
     fi
 fi

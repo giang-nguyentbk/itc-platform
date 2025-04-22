@@ -6,9 +6,8 @@ TO_BE_REMOVED_TEST_COVERAGE_EXTRA_FILES="sw/itc-api/src/*.gcda sw/itc-api/src/*.
 
 TO_BE_REMOVED="$TO_BE_REMOVED_IN_ROOT_DIR $TO_BE_REMOVED_IN_UNITTEST_DIR $TO_BE_REMOVED_TEST_COVERAGE_EXTRA_FILES"
 
-# make -k clean 2>/dev/null || true
+make -k clean 2>/dev/null || true
 rm -rf $TO_BE_REMOVED
 rm -rf $(find . -type d -name ".deps") 2>/dev/null
 rm -rf $(find . -type d -name ".libs") 2>/dev/null
 rm -f $(find . -type f -name ".dirstamp") 2>/dev/null
-rm -f $(find . -type f -name ".o") 2>/dev/null
