@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <string>
 #include <functional>
+#include <mutex>
+#include <shared_mutex>
 
 #include "itcLockFreeQueue.h"
 
@@ -85,7 +87,7 @@ public:
     
     RawPtr lookUpFromHashMap(const std::string &key)
     {
-        std::unique_lock lock(m_activeEntriesLock);
+        std::shared_lock lock(m_activeEntriesLock);
         auto found = m_activeEntries.find(key);
         if(found != m_activeEntries.cend()) UNLIKELY
         {
@@ -115,7 +117,7 @@ private:
     uint8_t *m_rawEntries {nullptr};
     LockFreeQueue<RawPtr, SIZE, nullptr, true, true, false, false> m_inactiveEntries;
     
-    std::mutex m_activeEntriesLock;
+    std::shared_mutex m_activeEntriesLock;
     std::unordered_map<std::string, RawPtr> m_activeEntries;
 };
 
