@@ -309,7 +309,7 @@ TEST_F(ItcMailboxTest, test4)
         if(count == 100)
         {
             // std::cout << "ETRUGIA: Terminating receiver!" << std::endl;
-            std::cout << "ETRUGIA: Queue size before = " << receiver.m_rxMsgQueue->size() << std::endl;
+            // std::cout << "ETRUGIA: Queue size before = " << receiver.m_rxMsgQueue->size() << std::endl;
             receiver.setState(false);
             // std::cout << "ETRUGIA: Queue size after = " << receiver.m_rxMsgQueue->size() << std::endl;
             break;
@@ -347,8 +347,7 @@ TEST_F(ItcMailboxTest, test4)
         ItcAdminMessageHelper::deallocate(msg);
     }
     
-    std::cout << "ETRUGIA: Rx queue size = " << receiver.m_rxMsgQueue->size() << std::endl;
-    
+    ASSERT_EQ(receiver.m_rxMsgQueue->size(), 0);
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     std::cout << "[BENCHMARK] ItcMailboxTest test4 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
 }

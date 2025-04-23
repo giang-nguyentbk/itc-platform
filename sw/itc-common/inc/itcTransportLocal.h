@@ -42,10 +42,10 @@ public:
     ItcTransportLocal(ItcTransportLocal &&other) noexcept = delete;
     ItcTransportLocal &operator=(ItcTransportLocal &&other) noexcept = delete;
     
-    bool initialise(std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> mboxList, ItcMailboxRawPtr myMbox);
+    bool initialise(std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> mboxList);
     
     ItcPlatformIfReturnCode send(ItcAdminMessageRawPtr adminMsg);
-    ItcAdminMessageRawPtr receive(uint32_t mode = ITC_MODE_DEFAULT);
+    ItcAdminMessageRawPtr receive(ItcMailboxRawPtr myMbox, uint32_t mode = ITC_MODE_DEFAULT);
     
 private:
     SINGLETON_DECLARATION(ItcTransportLocal)
@@ -53,11 +53,10 @@ private:
     
 private:
     std::weak_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> m_mboxList;
-    ItcMailboxRawPtr m_myMbox {nullptr};
     
     friend class ItcTransportLocalTest;
-	FRIEND_TEST(ItcTransportLocalTest, sendTest1);
-	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest1);
+	FRIEND_TEST(ItcTransportLocalTest, test1);
+	FRIEND_TEST(ItcTransportLocalTest, test2);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest2);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest3);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest4);

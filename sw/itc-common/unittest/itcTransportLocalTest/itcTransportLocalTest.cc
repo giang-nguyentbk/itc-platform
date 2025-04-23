@@ -29,21 +29,18 @@ protected:
     {
         m_regionId = 0x00200000;
         m_transportLocal = ItcTransportLocal::getInstance().lock();
-        m_mboxList = std::make_shared<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>>(ItcMailbox());
-        m_transportLocal->m_mboxList = m_mboxList;
-        if(auto index = m_mboxList->insert("sender", ItcMailbox("sender")); index != INVALID_INDEX)
+        auto callback = [&](ItcMailboxRawPtr mailbox, uint32_t index)
         {
-            auto &sender = m_mboxList->at("sender");
-            m_sender = m_regionId | (index & ITC_MASK_UNIT_ID);
-            sender.mailboxId = m_sender;
-        }
-        if(auto index = m_mboxList->insert("receiver", ItcMailbox("receiver")); index != INVALID_INDEX)
-        {
-            auto &receiver = m_mboxList->at("receiver");
-            m_receiver = m_regionId | (index & ITC_MASK_UNIT_ID);
-            receiver.mailboxId = m_receiver;
-        }
-        m_threadPool = std::make_shared<ThreadPool>(5);
+            mailbox->m_mailboxId = (m_regionId << ITC_REGION_ID_SHIFT) | (index & ITC_MASK_UNIT_ID);
+        };
+        m_mboxList = std::make_shared<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>>(callback);
+        m_sender = m_mboxList->tryPopFromQueue();
+        m_mboxList->addEntryToHashMap("sender", m_sender);
+        m_sender->setState(true);
+        m_receiver = m_mboxList->tryPopFromQueue();
+        m_mboxList->addEntryToHashMap("receiver", m_receiver);
+        m_receiver->setState(true);
+        m_transportLocal->initialise(m_mboxList);
     }
 
     void TearDown() override
@@ -66,98 +63,92 @@ protected:
 protected:
     std::shared_ptr<ItcTransportLocal> m_transportLocal  {nullptr};
     itc_mailbox_id_t m_regionId {ITC_MAILBOX_ID_DEFAULT};
-    itc_mailbox_id_t m_sender {ITC_MAILBOX_ID_DEFAULT};
-    itc_mailbox_id_t m_receiver {ITC_MAILBOX_ID_DEFAULT};
+    ItcMailboxRawPtr m_sender {nullptr};
+    ItcMailboxRawPtr m_receiver {nullptr};
     std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> m_mboxList {nullptr};
-    std::shared_ptr<ThreadPool> m_threadPool {nullptr};
 };
 
-TEST_F(ItcTransportLocalTest, sendTest1)
+TEST_F(ItcTransportLocalTest, test1)
 {
     /***
      * Test scenario: test send a message to a mailbox.
      */
     uint32_t msgno = 0xAAAABBBB;
     auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
-    sentMessage->receiver = m_receiver;
-    sentMessage->sender = m_sender;
+    sentMessage->receiver = m_receiver->m_mailboxId;
+    sentMessage->sender = m_sender->m_mailboxId;
     std::chrono::_V2::system_clock::time_point start;
     std::chrono::_V2::system_clock::time_point end;
     
     start = std::chrono::high_resolution_clock::now();
     MAYBE_UNUSED auto rc = m_transportLocal->send(sentMessage);
-    end = std::chrono::high_resolution_clock::now();
     // ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK));
-    auto &receiver = m_transportLocal->m_mboxList.lock()->at("receiver");
-    // ASSERT_NE(receiver, ItcMailbox());
-    // ASSERT_EQ(receiver.m_rxMsgQueue->size(), 1);
-    ItcAdminMessageRawPtr msg {nullptr};
-    auto popSucceeded = receiver.m_rxMsgQueue->tryPop(msg);
-    ASSERT_EQ(popSucceeded, true);
-    ASSERT_EQ(msg, sentMessage);
+    auto receivedMessage = m_transportLocal->receive(m_receiver, ITC_MODE_RECEIVE_NON_BLOCKING);
+    end = std::chrono::high_resolution_clock::now();
+    ASSERT_EQ(receivedMessage, sentMessage);
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     std::cout << "[BENCHMARK] ItcTransportLocalTest test1 " << " took " << duration << " ns\n";
 }
 
-// TEST_F(ItcTransportLocalTest, sendReceiveTest1)
-// {
-//     /***
-//      * Test scenario: test send/receive a message to/from a mailbox.
-//      */
-//     uint32_t msgno = 0xAAAABBBB;
-//     auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
-//     sentMessage->receiver = m_receiver;
-//     sentMessage->sender = m_sender;
+TEST_F(ItcTransportLocalTest, test2)
+{
+    /***
+     * Test scenario: test one thread sends and another thread receives a message.
+     */
+    std::chrono::_V2::system_clock::time_point start;
+    std::chrono::_V2::system_clock::time_point end;
+    std::chrono::_V2::system_clock::time_point start1;
+    std::chrono::_V2::system_clock::time_point end1;
+    constexpr uint32_t NUMBER_OF_MESSAGES = 1000;
+    std::array<ItcAdminMessageRawPtr, NUMBER_OF_MESSAGES> receivedMessages;
+    auto receiver = [&]()
+    {
+        uint32_t count {0};
+        while(count < NUMBER_OF_MESSAGES)
+        {
+            auto msg = m_transportLocal->receive(m_receiver);
+            if(msg)
+            {
+                receivedMessages.at(count) = msg;
+                ++count;
+            }
+        }
+    };
     
-//     auto rc = m_transportLocal->send(sentMessage);
-//     ASSERT_EQ(rc, MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK));
-//     auto mboxOpt = m_transportLocal->m_mboxList.lock()->at("receiver");
-//     ASSERT_EQ(mboxOpt.has_value(), true);
-//     auto &mbox = mboxOpt.value().get();
-//     ASSERT_EQ(mbox.m_rxMsgQueue.size(), 1);
-//     ASSERT_EQ(mbox.m_rxMsgQueue.front(), sentMessage);
-    
-//     auto receivedMsg = m_transportLocal->receive(m_receiverMbox);
-//     ASSERT_EQ(receivedMsg, sentMessage);
-//     ItcAdminMessageHelper::deallocate(receivedMsg);
-// }
+    auto sender = [&]()
+    {
+        start1 = std::chrono::high_resolution_clock::now();
+        std::array<ItcAdminMessageRawPtr, NUMBER_OF_MESSAGES> sentMessages;
+        for(uint32_t i = 0; i < NUMBER_OF_MESSAGES; ++i)
+        {
+            sentMessages.at(i) = ItcAdminMessageHelper::allocate(0xFFFF + i);
+            sentMessages.at(i)->receiver = m_receiver->m_mailboxId;
+            sentMessages.at(i)->sender = m_sender->m_mailboxId;
+        }
+        end1 = std::chrono::high_resolution_clock::now();
+        
+        for(uint32_t i = 0; i < NUMBER_OF_MESSAGES; ++i)
+        {
+            m_transportLocal->send(sentMessages.at(i));
+            sentMessages.at(i) = nullptr;
+        }
+    };
 
-// TEST_F(ItcTransportLocalTest, sendReceiveTest2)
-// {
-//     /***
-//      * Test scenario: test one thread sends and another thread receives a message.
-//      */
+    start = std::chrono::high_resolution_clock::now();
+    std::thread receiverThread(receiver);
+    std::thread senderThread(sender);
+    receiverThread.join();
+    senderThread.join();
+    end = std::chrono::high_resolution_clock::now();
     
-//     std::vector<std::future<ItcAdminMessageRawPtr>> results;
-//     results.emplace_back(
-//         m_threadPool->enqueue(
-//             /* receiver thread */
-//             [this]()
-//             {
-//                 return this->m_transportLocal->receive(m_receiverMbox);
-//             }
-//         )
-//     );
+    for(uint32_t i = 0; i < NUMBER_OF_MESSAGES; ++i)
+    {
+        ItcAdminMessageHelper::deallocate(receivedMessages[i]);
+    }
     
-//     uint32_t msgno = 0xAAAABBBB;
-//     auto sentMessage = ItcAdminMessageHelper::allocate(msgno);
-//     sentMessage->receiver = m_receiver;
-//     sentMessage->sender = m_sender;
-    
-//     results.emplace_back(
-//         m_threadPool->enqueue(
-//             /* sender thread */
-//             [this, sentMessage]()
-//             {
-//                 m_transportLocal->send(sentMessage);
-//                 return static_cast<ItcAdminMessageRawPtr>(nullptr);
-//             }
-//         )
-//     );
-    
-//     ASSERT_EQ(results.front().get(), sentMessage);
-//     ItcAdminMessageHelper::deallocate(sentMessage);
-// }
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>((end - start) - (end1 - start1)).count();
+    std::cout << "[BENCHMARK] ItcTransportLocalTest test2 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+}
 
 // TEST_F(ItcTransportLocalTest, sendReceiveTest3)
 // {

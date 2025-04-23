@@ -110,8 +110,8 @@ private:
 	FRIEND_TEST(ItcMailboxTest, test4);
 	
 	friend class ItcTransportLocalTest;
-	FRIEND_TEST(ItcTransportLocalTest, sendTest1);
-	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest1);
+	FRIEND_TEST(ItcTransportLocalTest, test1);
+	FRIEND_TEST(ItcTransportLocalTest, test2);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest2);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest3);
 	FRIEND_TEST(ItcTransportLocalTest, sendReceiveTest4);

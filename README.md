@@ -10,10 +10,10 @@ Each board is one instance of a single OS and may have several processes.
 Each thread inside a process must create a mailbox (maybe only one per thread supported for now) with a unique mailbox id across the entire universe (your whole system including all boards, devices,...).
  
 To be consistent, throughout this project we will define:
-	+ Thread scope: a thread inside a process				-> "Unit"
-	+ Process scope: all threads inside a process			-> "Region"
-	+ Host scope: all processes inside a host				-> "World"
-	+ Network scope: all hosts inside a private network		-> "Universe"
+	+ Thread scope: a thread inside a process: [Unit]
+	+ Process scope: all threads inside a process: [Region]
+	+ Host scope: all processes inside a host: [World]
+	+ Network scope: all hosts inside a private network: [Universe]
  
 To communicate between Worlds, we need an itc-gateway which is responsible for sending/receiving messages to/from other Worlds, helping a mailbox locate another one in other Worlds. This itc-gateway will translate itc messaging protocol to Ethernet protocol and vice versa, so that's why it's named as a "gateway". This itc-gateway is only enabled if any newly created mailbox desires to have external communication.
 

@@ -15,11 +15,9 @@ include sw/itc-common/unittest/real/itcTransportSysvMsgQueueRealImpl/Makefile.am
 # List out all test suites to run
 include sw/itc-common/unittest/itcConcurrentContainerTest/Makefile.am
 include sw/itc-common/unittest/itcFileSystemTest/Makefile.am
-include sw/itc-common/unittest/itcLockFreeHashMapTest/Makefile.am
 include sw/itc-common/unittest/itcLockFreeQueueTest/Makefile.am
 include sw/itc-common/unittest/itcMailboxTest/Makefile.am
 include sw/itc-common/unittest/itcMutexTest/Makefile.am
-include sw/itc-common/unittest/itcSmartContainerTest/Makefile.am
 include sw/itc-common/unittest/itcThreadManagerIfTest/Makefile.am
 include sw/itc-common/unittest/itcThreadPoolTest/Makefile.am
 include sw/itc-common/unittest/itcTransportLocalTest/Makefile.am

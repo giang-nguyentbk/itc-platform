@@ -9,11 +9,13 @@
 include sw/itc-common/unittest/real/itcMailboxRealImpl/Makefile.am
 # include sw/itc-common/unittest/real/itcFileSystemRealImpl/Makefile.am
 # include sw/itc-common/unittest/real/itcMutexRealImpl/Makefile.am
-# include sw/itc-common/unittest/real/itcTransportLocalRealImpl/Makefile.am
+include sw/itc-common/unittest/real/itcTransportLocalRealImpl/Makefile.am
 # include sw/itc-common/unittest/real/itcTransportLSocketRealImpl/Makefile.am
 # include sw/itc-common/unittest/real/itcTransportSysvMsgQueueRealImpl/Makefile.am
 
 # List out all test suites to run unit test
 # include sw/itc-api/unittest/itcPlatformIfTest/Makefile.am
 # include sw/itc-common/unittest/itcTransportLocalTest/Makefile.am
+include sw/itc-common/unittest/itcConcurrentContainerTest/Makefile.am
 include sw/itc-common/unittest/itcMailboxTest/Makefile.am
+include sw/itc-common/unittest/itcTransportLocalTest/Makefile.am

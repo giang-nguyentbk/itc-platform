@@ -25,28 +25,27 @@ SINGLETON_DEFINITION(ItcTransportLocal)
 
 using namespace ITC::PROVIDED;
 
-bool ItcTransportLocal::initialise(std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> mboxList, ItcMailboxRawPtr myMbox)
+bool ItcTransportLocal::initialise(std::shared_ptr<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>> mboxList)
 {    
     m_mboxList = mboxList;
-    m_myMbox = myMbox;
     return true;
 }
 
 ItcPlatformIfReturnCode ItcTransportLocal::send(ItcAdminMessageRawPtr adminMsg)
 {
     size_t receiverIndex = adminMsg->receiver & ITC_MASK_UNIT_ID;
-    auto &receiver = m_mboxList.lock()->at(receiverIndex);
-    if(receiver != ItcMailbox())
+    auto receiver = m_mboxList.lock()->at(receiverIndex);
+    if(receiver)
     {
-        receiver.push(adminMsg);
+        receiver->push(adminMsg);
         return MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_OK);
     }
     return MAKE_RETURN_CODE(ItcPlatformIfReturnCode, ITC_FAILED);
 }
 
-ItcAdminMessageRawPtr ItcTransportLocal::receive(uint32_t mode)
+ItcAdminMessageRawPtr ItcTransportLocal::receive(ItcMailboxRawPtr myMbox, uint32_t mode)
 {
-    return m_myMbox->pop(mode);
+    return myMbox->pop(mode);
 }
 
 } // namespace INTERNAL

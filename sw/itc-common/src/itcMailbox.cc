@@ -14,8 +14,7 @@ bool ItcMailbox::push(ItcAdminMessageRawPtr msg)
     bool active = m_isActive.load(MEMORY_ORDER_ACQUIRE);
     if(!active) UNLIKELY
     {
-        // std::cout << "ETRUGIA: Failed to send!\n";
-        return false;   
+        return false;
     }
     return m_rxMsgQueue->tryPush(msg);
 }

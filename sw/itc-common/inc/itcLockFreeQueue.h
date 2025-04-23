@@ -76,7 +76,7 @@ constexpr T nil() noexcept
  * For example if you have an array of uint8_t:
  * So, normally 64 elements are packed into a same cache line with index from 0 -> 63.
  * If two threads access and modify two different elements but they're causing cache line invalidation
- * which seriously slows down the performance and cannot achieve lock free.
+ * which seriously slows down the performance.
  * 
  * So, we will trade off memory footprint a bit with much better performance
  * by remapping emelents at 64n-th positions in a larger array.
@@ -206,7 +206,7 @@ protected:
             while(true)
             {
                 T element = queueElem.load(MEMORY_ORDER_ACQUIRE);
-                if(CLIKELY(element != NIL))
+                if(C_LIKELY(element != NIL))
                 {
                     queueElem.store(NIL, MEMORY_ORDER_RELAXED);
                     return element;
@@ -221,7 +221,7 @@ protected:
             while(true)
             {
                 T element = queueElem.exchange(NIL, MEMORY_ORDER_ACQUIRE);
-                if(CLIKELY(element != NIL))
+                if(C_LIKELY(element != NIL))
                 {
                     return element;
                 }
@@ -242,7 +242,7 @@ protected:
         assert(element != NIL);
         if(DerivedClass::m_isSPSC)
         {
-            while(CUNLIKELY(queueElem.load(MEMORY_ORDER_RELAXED) != NIL))
+            while(C_UNLIKELY(queueElem.load(MEMORY_ORDER_RELAXED) != NIL))
             {
                 if(DerivedClass::m_willMaximizeThroughput)
                 {
@@ -252,7 +252,7 @@ protected:
             queueElem.store(element, MEMORY_ORDER_RELEASE);
         } else
         {
-            for(T expected = NIL; CUNLIKELY(!queueElem.compare_exchange_weak(expected, element, MEMORY_ORDER_RELEASE, MEMORY_ORDER_RELAXED)); expected = NIL)
+            for(T expected = NIL; C_UNLIKELY(!queueElem.compare_exchange_weak(expected, element, MEMORY_ORDER_RELEASE, MEMORY_ORDER_RELAXED)); expected = NIL)
             {
                 do
                 {
@@ -265,7 +265,7 @@ protected:
 
 public:
     template<class T>
-    bool tryPush(T &&element) noexcept
+    ALWAYS_INLINE bool tryPush(T &&element) noexcept
     {
         auto head = m_head.load(MEMORY_ORDER_RELAXED);
         if(DerivedClass::m_isSPSC)
@@ -282,7 +282,7 @@ public:
                 {
                     return false;
                 }
-            } while(CUNLIKELY(!m_head.compare_exchange_weak(head, head + 1, MEMORY_ORDER_RELAXED, MEMORY_ORDER_RELAXED)));
+            } while(C_UNLIKELY(!m_head.compare_exchange_weak(head, head + 1, MEMORY_ORDER_RELAXED, MEMORY_ORDER_RELAXED)));
         }
 
         static_cast<DerivedClass &>(*this).doPush(std::forward<T>(element), head);
@@ -290,7 +290,7 @@ public:
     }
 
     template<class T>
-    bool tryPop(T& element) noexcept
+    ALWAYS_INLINE bool tryPop(T& element) noexcept
     {
         auto tail = m_tail.load(MEMORY_ORDER_RELAXED);
         if(DerivedClass::m_isSPSC)
@@ -308,7 +308,7 @@ public:
                 {
                     return false;
                 }
-            } while(CUNLIKELY(!m_tail.compare_exchange_weak(tail, tail + 1, MEMORY_ORDER_RELAXED, MEMORY_ORDER_RELAXED)));
+            } while(C_UNLIKELY(!m_tail.compare_exchange_weak(tail, tail + 1, MEMORY_ORDER_RELAXED, MEMORY_ORDER_RELAXED)));
         }
 
         element = static_cast<DerivedClass &>(*this).doPop(tail);
@@ -316,7 +316,7 @@ public:
     }
 
     template<class T>
-    void push(T &&element) noexcept
+    ALWAYS_INLINE void push(T &&element) noexcept
     {
         uint32_t head;
         if(DerivedClass::m_isSPSC)
@@ -331,7 +331,7 @@ public:
         static_cast<DerivedClass &>(*this).doPush(std::forward<T>(element), head);
     }
 
-    auto pop() noexcept
+    ALWAYS_INLINE auto pop() noexcept
     {
         uint32_t tail;
         if(DerivedClass::m_isSPSC)

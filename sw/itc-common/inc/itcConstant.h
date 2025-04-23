@@ -27,11 +27,12 @@ namespace INTERNAL
 #define NODISCARD(reason) [[nodiscard(reason)]] // C++20
 #endif
 
-#define CLIKELY_WITH_PROBABILITY(cond, ret, proba) \
+#define C_LIKELY_WITH_PROBABILITY(cond, ret, proba) \
 	__builtin_expect_with_probability(cond, ret, proba) /* proba = 0.0 -> 1.0 */
-// #define CLIKELY(cond, ret) __builtin_expect(cond, ret) /* proba is 90% by default */
-#define CLIKELY(x)      __builtin_expect(!!(x), 1)
-#define CUNLIKELY(x)    __builtin_expect(!!(x), 0)
+// #define C_LIKELY(cond, ret) __builtin_expect(cond, ret) /* proba is 90% by default */
+#define C_LIKELY(x)		__builtin_expect(!!(x), 1)
+#define C_UNLIKELY(x)	__builtin_expect(!!(x), 0)
+#define ALWAYS_INLINE	__attribute__((always_inline)) inline
 
 #define ITC_FLAG_I_AM_ITC_SERVER                                    (uint32_t)(0x00000001)
 #define ITC_MASK_UNIT_ID                                            (uint32_t)(0x0000FFFF)

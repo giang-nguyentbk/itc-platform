@@ -231,7 +231,7 @@ eval "$AUTO_BUILD_COMMAND"
 
 # Verify output
 if  [[ "$BUILD_TYPE" == "unittest" ]]; then
-    if [[ ! -f "$UNITTEST_LOG" || $(grep -E '\[  FAILED  \]' "$UNITTEST_LOG") ]]; then
+    if [[ ! -f "$UNITTEST_LOG" || $(grep -E '\[  FAILED  \]' "$UNITTEST_LOG") || ! $(grep -E "PASSED" "$UNITTEST_LOG") ]]; then
         echo -e '[-] UNIT TEST: \t\t\t [FAILED] ❌'
     else
         echo -e '[+] UNIT TEST: \t\t\t [PASSED] ✅'

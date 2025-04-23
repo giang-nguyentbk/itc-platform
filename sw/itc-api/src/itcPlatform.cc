@@ -53,27 +53,15 @@ thread_local ItcMailboxRawPtr ItcPlatform::m_myMailbox = nullptr;
 
 ItcPlatform::ItcPlatform()
 {
-    static SmartContainer<ItcMailbox>::Callback callback =
+    auto callback = [&](ItcMailboxRawPtr mailbox, uint32_t index)
     {
-        [](const ItcMailbox &mbox) -> std::string
-        {
-            return mbox.name;
-        },
-        [](ItcMailbox &mbox)
-        {
-            mbox.reset();
-        }
+        mailbox->m_mailboxId = (m_regionId << ITC_REGION_ID_SHIFT) | (index & ITC_MASK_UNIT_ID);
     };
-    m_mboxList = std::make_shared<SmartContainer<ItcMailbox>>(callback);
+    m_mboxList = std::make_shared<ConcurrentContainer<ItcMailbox, ITC_MAX_SUPPORTED_MAILBOXES>>(callback);
 }
 
 ItcPlatform::~ItcPlatform()
-{
-	if(m_mboxList)
-    {
-        m_mboxList.reset();
-    }
-}
+{}
 
 ItcPlatformIfReturnCode ItcPlatform::initialise(uint32_t flags)
 {
