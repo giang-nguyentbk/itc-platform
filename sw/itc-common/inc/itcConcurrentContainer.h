@@ -5,8 +5,6 @@
 #include <unordered_map>
 #include <string>
 #include <functional>
-#include <mutex>
-#include <shared_mutex>
 
 #include "itcLockFreeQueue.h"
 
@@ -50,8 +48,7 @@ public:
         delete[] m_rawEntries;
         while(!m_inactiveEntries.empty())
         {
-            MAYBE_UNUSED RawPtr dummy {nullptr};
-            m_inactiveEntries.tryPop(dummy);
+            m_inactiveEntries.pop();
         }
         m_activeEntries.clear();
     }
@@ -87,7 +84,7 @@ public:
     
     RawPtr lookUpFromHashMap(const std::string &key)
     {
-        std::shared_lock lock(m_activeEntriesLock);
+        std::unique_lock lock(m_activeEntriesLock);
         auto found = m_activeEntries.find(key);
         if(found != m_activeEntries.cend()) UNLIKELY
         {
@@ -103,9 +100,7 @@ public:
     
     RawPtr tryPopFromQueue()
     {
-        RawPtr entry {nullptr};
-        m_inactiveEntries.tryPop(entry);
-        return entry;
+        return m_inactiveEntries.pop();
     }
     
     uint32_t size()
@@ -115,9 +110,9 @@ public:
         
 private:
     uint8_t *m_rawEntries {nullptr};
-    LockFreeQueue<RawPtr, SIZE, nullptr, true, true, false, false> m_inactiveEntries;
+    LockFreeQueue<RawPtr, SIZE, nullptr, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC> m_inactiveEntries;
     
-    std::shared_mutex m_activeEntriesLock;
+    std::mutex m_activeEntriesLock;
     std::unordered_map<std::string, RawPtr> m_activeEntries;
 };
 

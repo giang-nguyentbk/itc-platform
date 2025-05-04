@@ -27,8 +27,8 @@ protected:
     
     void SetUp() override
     {
-        m_spscQueue = std::make_shared<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, true, true, false, true>>();
-        m_mpmcQueue = std::make_shared<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, true, true, false, false>>();
+        m_spscQueue = std::make_shared<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, IS_SPSC>>();
+        m_mpmcQueue = std::make_shared<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>>();
     }
 
     void TearDown() override
@@ -53,8 +53,7 @@ protected:
             long long count = 0;
             while(count < NUMBER_OF_MESSAGES)
             {
-                [[maybe_unused]] uint32_t value;
-                if(this->m_spscQueue->tryPop(value))
+                if([[maybe_unused]] uint32_t value = this->m_spscQueue->pop())
                 {
                     // Wait until an item is available
                     // std::cout << "Consumed: " << value << ", count = " << count << std::endl;
@@ -76,7 +75,7 @@ protected:
         end = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        std::cout << "[BENCHMARK] LockFreeQueue test1 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+        std::cout << "[BENCHMARK] LockFreeQueue_test1 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
     }
     
     void benchmarkMPMC()
@@ -100,8 +99,7 @@ protected:
             long long count = 0;
             while(count < NUMBER_OF_MESSAGES / NUMBER_OF_CONSUMERS)
             {
-                [[maybe_unused]] uint32_t value;
-                if(this->m_mpmcQueue->tryPop(value))
+                if([[maybe_unused]] uint32_t value = this->m_mpmcQueue->pop())
                 {
                     // Wait until an item is available
                     // std::cout << "Consumed: " << value << ", count = " << count << std::endl;
@@ -130,12 +128,12 @@ protected:
         end = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        std::cout << "[BENCHMARK] LockFreeQueue test2 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+        std::cout << "[BENCHMARK] LockFreeQueue_test2 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
     }
 
 protected:
-    std::shared_ptr<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, true, true, false, true>> m_spscQueue {nullptr};
-    std::shared_ptr<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, true, true, false, false>> m_mpmcQueue {nullptr};
+    std::shared_ptr<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, IS_SPSC>> m_spscQueue {nullptr};
+    std::shared_ptr<LockFreeQueue<uint32_t, QUEUE_SIZE, 0, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>> m_mpmcQueue {nullptr};
 };
 
 TEST_F(LockFreeQueueTest, test1)
@@ -149,11 +147,10 @@ TEST_F(LockFreeQueueTest, test1)
 TEST_F(LockFreeQueueTest, test2)
 {
     /***
-     * Test scenario: test Single Producer Single Consumer queue.
+     * Test scenario: test Multi Producer Multi Consumer queue.
      */
     benchmarkMPMC();
 }
-
 
 } // namespace INTERNAL
 } // namespace ITC

@@ -39,11 +39,11 @@ protected:
         constexpr uint32_t NUMBER_OF_MODIFIERS = 100;
         auto modifier = [&](uint32_t modiferId) {
             // std::cout << "ETRUGIA: ModifierId = " << modiferId << ", start modifying...\n";
-            TestData *entry = m_cContainer.tryPopFromQueue();
-            m_cContainer.addEntryToHashMap(entry->name, entry);
-            m_cContainer.removeEntryFromHashMap(entry->name);
+            TestData *entry = m_cArray.tryPopFromQueue();
+            m_cArray.addEntryToHashMap(entry->name, entry);
+            m_cArray.removeEntryFromHashMap(entry->name);
             entry->name = "default";
-            m_cContainer.tryPushIntoQueue(entry);
+            m_cArray.tryPushIntoQueue(entry);
             // std::cout << "ETRUGIA: ModifierId = " << modiferId << ", finish modifying...\n";
         };
 
@@ -58,11 +58,11 @@ protected:
             modifierThreads[i].join();
         }
         
-        ASSERT_EQ(m_cContainer.size(), 0);
+        ASSERT_EQ(m_cArray.size(), 0);
     }
     
 protected:
-    ConcurrentContainer<TestData, 64> m_cContainer {[](TestData *entry, uint32_t index)
+    ConcurrentContainer<TestData, 64> m_cArray {[](TestData *entry, uint32_t index)
     {
         entry->name = "TestData";
         entry->name += std::to_string(index);

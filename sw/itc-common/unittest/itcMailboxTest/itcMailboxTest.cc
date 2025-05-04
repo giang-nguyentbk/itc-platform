@@ -52,7 +52,7 @@ TEST_F(ItcMailboxTest, test1)
     ASSERT_EQ(msg, sentMessage);
     ItcAdminMessageHelper::deallocate(msg);
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    std::cout << "[BENCHMARK] ItcMailboxTest test1 " << " took " << duration << " ns\n";
+    std::cout << "[BENCHMARK] ItcMailboxTest_test1 " << " took " << duration << " ns\n";
 }
 
 TEST_F(ItcMailboxTest, test2)
@@ -109,7 +109,7 @@ TEST_F(ItcMailboxTest, test2)
     
     end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    std::cout << "[BENCHMARK] ItcMailboxTest test2 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+    std::cout << "[BENCHMARK] ItcMailboxTest_test2 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
 }
 
 
@@ -177,7 +177,7 @@ TEST_F(ItcMailboxTest, test3)
     }
     
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    std::cout << "[BENCHMARK] ItcMailboxTest test3 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+    std::cout << "[BENCHMARK] ItcMailboxTest_test3 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
 }
 
 #define FOR_LOOP_ALLOCATION(index) \
@@ -349,7 +349,7 @@ TEST_F(ItcMailboxTest, test4)
     
     ASSERT_EQ(receiver.m_rxMsgQueue->size(), 0);
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    std::cout << "[BENCHMARK] ItcMailboxTest test4 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
+    std::cout << "[BENCHMARK] ItcMailboxTest_test4 " << " took " << duration / NUMBER_OF_MESSAGES << " ns\n";
 }
 
 } // namespace INTERNAL

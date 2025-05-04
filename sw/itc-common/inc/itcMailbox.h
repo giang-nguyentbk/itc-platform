@@ -38,7 +38,7 @@ public:
 	ItcMailbox(uint32_t flags = ITC_FLAG_DEFAULT)
 		:  m_flags(flags)
 	{
-		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>>();
 	}
 	
 	~ItcMailbox()
@@ -50,13 +50,13 @@ public:
 	{
 		m_mailboxId = other.m_mailboxId;
 		m_flags = other.m_flags;
-		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>>();
 	}
 	ItcMailbox &operator=(const ItcMailbox &other)
 	{
 		m_mailboxId = other.m_mailboxId;
 		m_flags = other.m_flags;
-		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>>();
+		m_rxMsgQueue = std::make_unique<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>>();
 		return *this;
 	}
 	ItcMailbox(ItcMailbox &&other) noexcept
@@ -100,7 +100,7 @@ public:
     uint32_t m_flags {ITC_FLAG_DEFAULT};
 	
 private:
-	std::unique_ptr<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, true, true, false, false>> m_rxMsgQueue {nullptr};
+	std::unique_ptr<LockFreeQueue<ItcAdminMessageRawPtr, ITC_MAILBOX_RX_MESSAGE_QUEUE_SIZE, nullptr, MINIMIZE_CONTENTION, MAXIMIZE_THROUGHPUT, !IS_TOTAL_ORDER, !IS_SPSC>> m_rxMsgQueue {nullptr};
 	std::atomic_bool m_isActive {false};
 	
 	friend class ItcMailboxTest;

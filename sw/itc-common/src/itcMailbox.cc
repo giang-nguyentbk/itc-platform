@@ -16,8 +16,24 @@ bool ItcMailbox::push(ItcAdminMessageRawPtr msg)
     {
         return false;
     }
-    return m_rxMsgQueue->tryPush(msg);
+    m_rxMsgQueue->push(msg);
+    return true;
+    // return m_rxMsgQueue->tryPush(msg);
 }
+
+// push
+// test4 average: 369.50 ns
+// test3 average: 426.02 ns
+// test2 average: 512.58 ns
+// test1 average: 81.68 ns
+
+// tryPush
+// test4 average: 303.52 ns
+// test3 average: 387.56 ns
+// test2 average: 447.24 ns
+// test1 average: 75.92 ns
+
+
 
 ItcAdminMessageRawPtr ItcMailbox::pop(uint32_t mode)
 {

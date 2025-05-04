@@ -96,7 +96,7 @@ template<> struct GetCacheLineIndexBits<  8> { static int32_t constexpr value = 
 template<> struct GetCacheLineIndexBits<  4> { static int32_t constexpr value = 2; };
 template<> struct GetCacheLineIndexBits<  2> { static int32_t constexpr value = 1; };
 
-template<bool WILL_MINIMIZE_CONTENTION, uint32_t SIZE, size_t elementsPerCacheLine>
+template<uint32_t MINIMIZE_CONTENTION_VALUE, uint32_t SIZE, size_t elementsPerCacheLine>
 struct GetIndexShuffleBits
 {
     static int32_t constexpr bits = GetCacheLineIndexBits<elementsPerCacheLine>::value;
@@ -105,7 +105,7 @@ struct GetIndexShuffleBits
 };
 
 template<uint32_t SIZE, size_t elementsPerCacheLine>
-struct GetIndexShuffleBits<false, SIZE, elementsPerCacheLine>
+struct GetIndexShuffleBits<0, SIZE, elementsPerCacheLine>
 {
     static int32_t constexpr value = 0;
 };
@@ -211,6 +211,7 @@ protected:
                     queueElem.store(NIL, MEMORY_ORDER_RELAXED);
                     return element;
                 }
+                /* If queue empty, yield cpu core to other threads. */
                 if(DerivedClass::m_willMaximizeThroughput)
                 {
                     yieldProcessor();
@@ -220,12 +221,20 @@ protected:
         {
             while(true)
             {
+                /***
+                 * Cannot use "load+store" here like SPSC because combinition of two atomic operations are not atomic any more.
+                 * We need another atomic operation that does "load+store" which is "exchange".
+                 */
                 T element = queueElem.exchange(NIL, MEMORY_ORDER_ACQUIRE);
                 if(C_LIKELY(element != NIL))
                 {
                     return element;
                 }
                 
+                /***
+                 * If someone is exchanging, yield cpu and wait a bit before checking again
+                 * (only if willMaximizeThroughput mode is enable).
+                 */
                 do
                 {
                     /* Do speculative loads while busy-waiting to avoid broadcasting RFO messages by CPU processors. */
@@ -367,17 +376,29 @@ public:
     }
 };
 
-template<class T, uint32_t SIZE, T NIL = nil<T>(), bool WILL_MINIMIZE_CONTENTION = true, bool WILL_MAXIMIZE_THROUGHPUT = true, bool IS_TOTAL_ORDER = false, bool IS_SPSC = false>
-class LockFreeQueue : public LockFreeQueueBase<LockFreeQueue<T, SIZE, NIL, WILL_MINIMIZE_CONTENTION, WILL_MAXIMIZE_THROUGHPUT, IS_TOTAL_ORDER, IS_SPSC>> {
+#define MINIMIZE_CONTENTION         (uint32_t)(1)
+#define MAXIMIZE_THROUGHPUT         (uint32_t)(1)
+#define IS_TOTAL_ORDER              (uint32_t)(1)
+#define IS_SPSC                     (uint32_t)(1)
+
+/***
+ * The size of LockFreeQueue template will be:
+ *      + 64 bytes: heal in LockFreeQueueBase.
+ *      + 64 bytes: tail in LockFreeQueueBase.
+ *      + (sizeof(T) * SIZE) bytes: in LockFreeQueue.
+ * Note that: Static data members do not contribute to class memory size.
+ */
+template<class T, uint32_t SIZE, T NIL = nil<T>(), uint32_t MINIMIZE_CONTENTION_VALUE = 1, uint32_t MAXIMIZE_THROUGHPUT_VALUE = 1, uint32_t IS_TOTAL_ORDER_VALUE = 0, uint32_t IS_SPSC_VALUE = 0>
+class LockFreeQueue : public LockFreeQueueBase<LockFreeQueue<T, SIZE, NIL, MINIMIZE_CONTENTION_VALUE, MAXIMIZE_THROUGHPUT_VALUE, IS_TOTAL_ORDER_VALUE, IS_SPSC_VALUE>> {
     
-    using BaseClass = LockFreeQueueBase<LockFreeQueue<T, SIZE, NIL, WILL_MINIMIZE_CONTENTION, WILL_MAXIMIZE_THROUGHPUT, IS_TOTAL_ORDER, IS_SPSC>>;
+    using BaseClass = LockFreeQueueBase<LockFreeQueue<T, SIZE, NIL, MINIMIZE_CONTENTION_VALUE, MAXIMIZE_THROUGHPUT_VALUE, IS_TOTAL_ORDER_VALUE, IS_SPSC_VALUE>>;
     friend BaseClass;
 
-    static constexpr uint32_t m_size = WILL_MINIMIZE_CONTENTION ? roundUpToPowerOf2(SIZE) : SIZE;
-    static constexpr int32_t SHUFFLE_BITS = GetIndexShuffleBits<WILL_MINIMIZE_CONTENTION, m_size, CACHE_LINE_SIZE / sizeof(std::atomic<T>)>::value;
-    static constexpr bool m_isTotalOrder = IS_TOTAL_ORDER;
-    static constexpr bool m_isSPSC = IS_SPSC;
-    static constexpr bool m_willMaximizeThroughput = WILL_MAXIMIZE_THROUGHPUT;
+    static constexpr uint32_t m_size = MINIMIZE_CONTENTION_VALUE ? roundUpToPowerOf2(SIZE) : SIZE;
+    static constexpr int32_t SHUFFLE_BITS = GetIndexShuffleBits<MINIMIZE_CONTENTION_VALUE, m_size, CACHE_LINE_SIZE / sizeof(std::atomic<T>)>::value;
+    static constexpr uint32_t m_isTotalOrder = IS_TOTAL_ORDER_VALUE;
+    static constexpr uint32_t m_isSPSC = IS_SPSC_VALUE;
+    static constexpr uint32_t m_willMaximizeThroughput = MAXIMIZE_THROUGHPUT_VALUE;
 
     alignas(CACHE_LINE_SIZE) std::atomic<T> m_queue[m_size];
 
